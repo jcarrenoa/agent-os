@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent OS Architecture Decision",
+  "description": "Records an architecture decision made during the design stage.",
+  "type": "object",
+  "required": ["id", "title", "context", "decision", "status", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^DEC-[0-9]{3,}$"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short title of the decision"
+    },
+    "context": {
+      "type": "string",
+      "description": "The problem or situation that required a decision"
+    },
+    "decision": {
+      "type": "string",
+      "description": "What was decided"
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Why this option was chosen over the alternatives"
+    },
+    "alternatives": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Other options that were considered"
+    },
+    "consequences": {
+      "type": "string",
+      "description": "Known trade-offs and implications of this decision"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "accepted", "deprecated", "superseded"]
+    },
+    "linked_task": {
+      "type": "string",
+      "description": "ID of the task this decision was made for (e.g. TASK-001)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "accepted_at": {
+      "type": ["string", "null"]
+    },
+    "superseded_by": {
+      "type": ["string", "null"],
+      "description": "ID of the decision that supersedes this one"
+    }
+  }
+}

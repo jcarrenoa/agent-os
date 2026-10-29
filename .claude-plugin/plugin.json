@@ -1,0 +1,7 @@
+{
+  "name": "agent-os",
+  "description": "Multi-agent software development team for Claude Code. Orchestrates a 5-stage pipeline: Discovery, Planning, Design/Architecture, Development, and Testing/QA. Adapts to any repository and technology stack.",
+  "author": {
+    "name": "Aaron Jose Rodriguez Carreño"
+  }
+}

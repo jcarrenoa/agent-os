@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent OS Pipeline State",
+  "description": "Tracks the current pipeline state. Written by commands, read by all agents.",
+  "type": "object",
+  "required": ["current_stage", "stage_status", "active_task_id", "last_updated"],
+  "additionalProperties": false,
+  "properties": {
+    "current_stage": {
+      "type": "string",
+      "enum": ["idle", "discovery", "planning", "design", "development", "qa", "done"]
+    },
+    "stage_status": {
+      "type": "string",
+      "enum": ["not_started", "in_progress", "blocked", "awaiting_approval", "approved", "done"]
+    },
+    "active_task_id": {
+      "type": ["string", "null"],
+      "description": "ID of the current task (e.g. TASK-001), null if idle"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stages_completed": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["discovery", "planning", "design", "development", "qa"]
+      },
+      "description": "Stages completed for the active task"
+    },
+    "pending_approval": {
+      "type": ["object", "null"],
+      "description": "Non-null when stage_status is awaiting_approval",
+      "required": ["gate", "requested_at", "context", "next_stage"],
+      "properties": {
+        "gate": {
+          "type": "string",
+          "description": "Name of the approval gate (e.g. requirements-approved)"
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "context": {
+          "type": "string",
+          "description": "Human-readable summary of what needs approval"
+        },
+        "next_stage": {
+          "type": "string",
+          "enum": ["planning", "design", "development", "qa", "done"]
+        }
+      }
+    },
+    "blocker": {
+      "type": ["object", "null"],
+      "description": "Non-null when stage_status is blocked",
+      "properties": {
+        "description": { "type": "string" },
+        "created_at": { "type": "string" },
+        "created_by": { "type": "string" }
+      }
+    }
+  }
+}

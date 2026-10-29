@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent OS Project Configuration",
+  "description": "Created by /agent-os:setup. Read by all agents to adapt behavior to the project.",
+  "type": "object",
+  "required": ["project_id", "project_name", "created_at", "tech_stack"],
+  "additionalProperties": false,
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Slug identifier for the project"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "description": {
+      "type": "string"
+    },
+    "project_type": {
+      "type": "string",
+      "enum": ["new", "existing", "legacy"],
+      "description": "new = greenfield, existing = active codebase, legacy = old codebase to modernize"
+    },
+    "tech_stack": {
+      "type": "object",
+      "required": ["frontend", "backend"],
+      "properties": {
+        "frontend": {
+          "type": "string",
+          "enum": ["react", "next", "vue", "nuxt", "angular", "flutter-web", "svelte", "none"]
+        },
+        "backend": {
+          "type": "string",
+          "enum": ["fastapi", "nestjs", "springboot", "dotnet", "go", "express", "laravel", "rails", "none"]
+        },
+        "mobile": {
+          "type": "string",
+          "enum": ["flutter", "react-native", "swift", "kotlin", "none"]
+        },
+        "database": {
+          "type": "string",
+          "enum": ["postgresql", "mysql", "mongodb", "sqlite", "firestore", "supabase", "planetscale", "redis", "none"]
+        },
+        "package_manager": {
+          "type": "string",
+          "description": "e.g. bun, pnpm, npm, yarn, uv, pip, poetry, maven, gradle, go mod"
+        },
+        "language": {
+          "type": "object",
+          "properties": {
+            "frontend": { "type": "string" },
+            "backend": { "type": "string" }
+          }
+        },
+        "test_command": {
+          "type": "string",
+          "description": "Command to run the test suite"
+        },
+        "dev_command": {
+          "type": "string",
+          "description": "Command to start the development server"
+        },
+        "build_command": {
+          "type": "string",
+          "description": "Command to build the project for production"
+        },
+        "lint_command": {
+          "type": "string",
+          "description": "Command to run the linter"
+        }
+      }
+    },
+    "team": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["solo", "small", "large"],
+          "description": "solo = 1 person, small = 2-5, large = 6+"
+        },
+        "review_required": {
+          "type": "boolean",
+          "description": "Whether human review is required before merging"
+        }
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "properties": {
+        "track_state_in_git": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether .agent-os/ files should be committed to git"
+        },
+        "require_architecture_approval": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the design stage requires explicit user approval before development"
+        },
+        "require_requirements_approval": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the discovery stage requires explicit user approval before planning"
+        }
+      }
+    }
+  }
+}
