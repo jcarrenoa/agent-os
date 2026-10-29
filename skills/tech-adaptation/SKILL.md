@@ -1,7 +1,7 @@
 ---
 name: tech-adaptation
-description: This skill should be used by backend-developer and frontend-developer agents at the start of any development task. It tells the agent how to read the project tech stack from .agent-os/config.json and apply the correct architecture patterns, conventions, and tools for that stack.
-version: 1.0.0
+description: Plugin default skill for backend-developer and frontend-developer agents. Applied automatically when mode is "extend" (the default) and no replacement skill is configured. Resolved by the skill-resolution skill — do not reference this file directly from agents or commands; use the Extensions block instead.
+version: 1.1.0
 ---
 
 # Tech Adaptation Protocol

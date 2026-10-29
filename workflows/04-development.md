@@ -30,12 +30,15 @@ Exception: If the task has no backend (frontend-only), run frontend subtasks in 
 
 ## Context Passed to Each Agent
 
+Before spawning each developer agent, the calling command follows the `skill-resolution` skill for stage `development` with the agent's role (`backend` or `frontend`). If a scaffold skill is configured and `project_type = "new"`, it is run before the first subtask for that role.
+
 Each developer agent receives:
 1. Their specific subtask object from `task.subtasks`.
 2. The full task file path (to read requirements and architecture).
 3. The config file path (for tech stack).
 4. The list of ADR IDs from `task.decisions` (to read architecture decisions).
 5. Implementation order guidance from Stage 3.
+6. The extension resolution block for their role under `## Extensions` (includes resolved skill and doc paths, and mode).
 
 ## Parallel Execution
 

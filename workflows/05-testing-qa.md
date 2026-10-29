@@ -19,6 +19,8 @@ Independently verify that the implementation correctly satisfies all approved re
 
 ## The Agent's Job
 
+Before spawning the agent, the calling command follows the `skill-resolution` skill for stage `qa` and passes the result under `## Extensions`. If the resolution includes extra Agents, they are spawned in parallel and their findings are merged. Post-QA Commands are run after APPROVE (with an approval gate for any marked `[requires-gate]`).
+
 The `qa-engineer` agent independently reviews:
 1. Requirements coverage: is each requirement implemented and tested?
 2. Test suite: does it pass?

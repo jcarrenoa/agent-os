@@ -14,6 +14,15 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 - `"en"` → English
 - `"es"` → Spanish (Español)
 
+## Extensions
+
+If your prompt contains a `## Extensions` block:
+- Read each file listed under **Skills** (in order) and apply its protocol.
+- Read each file listed under **Docs** (in order) before analyzing requirements.
+- Each entry is tagged with its tier (`agent`, `stage`, `context`) and level (`project`, `user`, `plugin`). Entries tagged `agent` are specific to you; those tagged `stage` apply to all agents in this stage.
+- If `Mode: replace`: use only what is listed — no built-in defaults are added.
+- If `Mode: extend` or no Extensions block: apply any built-in defaults for this stage.
+
 ## Your Inputs
 
 You will receive:

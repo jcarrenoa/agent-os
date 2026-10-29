@@ -22,6 +22,8 @@ If any exit condition is not met, the requirements-analyst agent must ask additi
 
 ## The Agent's Job
 
+Before spawning the agent, the calling command follows the `skill-resolution` skill for stage `discovery` and passes the result to the agent under `## Extensions`. The agent reads any listed skills and docs before starting.
+
 The `requirements-analyst` agent:
 1. Reads `config.json` for project context.
 2. Reads `CLAUDE.md` and `README.md` for domain knowledge.

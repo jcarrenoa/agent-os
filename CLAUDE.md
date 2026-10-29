@@ -10,13 +10,19 @@ This is a Claude Code plugin that provides a multi-agent software development fr
 
 ```
 agent-os/
-├── .claude-plugin/plugin.json    ← Plugin manifest (name, author)
-├── agents/*.md                   ← Subagent definitions
-├── commands/*.md                 ← Slash command definitions
-├── skills/*/SKILL.md             ← Model-invoked skills
-├── schemas/*.schema.json         ← JSON schemas for state validation
-├── workflows/*.md                ← Detailed stage workflow instructions
-└── marketplace/                  ← Marketplace distribution files
+├── .claude-plugin/plugin.json              ← Plugin manifest (name, author)
+├── .claude-plugin/marketplace.json         ← Local dev marketplace (source: "./")
+├── agents/*.md                             ← Subagent definitions
+├── commands/*.md                           ← Slash command definitions
+├── skills/*/SKILL.md                       ← Model-invoked skills
+│   ├── tech-adaptation/SKILL.md            ← Default stack skill (extend mode)
+│   ├── skill-resolution/SKILL.md           ← Extension resolution protocol
+│   └── approval-gates/SKILL.md             ← Gate presentation protocol
+├── schemas/*.schema.json                   ← JSON schemas for state validation
+│   ├── config.schema.json                  ← Project config (includes extensions)
+│   └── defaults.schema.json               ← User ~/.agent-os/defaults.json shape
+├── workflows/*.md                          ← Detailed stage workflow instructions
+└── marketplace/                            ← Marketplace distribution files
 ```
 
 ## File Authoring Rules
@@ -56,6 +62,8 @@ agent-os/
 - Do not create any runnable code (Python, TypeScript, etc.) in this repository — this plugin works entirely through Markdown instructions.
 - Do not duplicate instructions across files — reference the skills instead.
 - Do not hardcode assumptions about the target project's tech stack in the plugin files.
+- Do not hardcode external skill names or doc paths in agents or commands. Extensions are resolved dynamically via the `skill-resolution` skill. Agents receive resolved paths in their `## Extensions` prompt block.
+- Do not run commands or agents with external effects (publish, push, deploy, merge, send) automatically. They must always go through an approval gate per the `approval-gates` skill.
 
 ## Versioning
 

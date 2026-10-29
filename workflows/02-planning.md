@@ -21,6 +21,8 @@ Transform approved requirements into a concrete, sequenced implementation plan w
 
 ## The Agent's Job
 
+Before spawning the agent, the calling command follows the `skill-resolution` skill for stage `planning` and passes the result to the agent under `## Extensions`. The agent reads any listed skills and docs before starting.
+
 The `planner` agent:
 1. Reads `config.json` and the task file.
 2. Inspects the codebase for relevant existing patterns.

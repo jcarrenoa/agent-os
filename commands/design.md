@@ -22,9 +22,14 @@ Read `workflows/03-design-architecture.md` and follow it completely.
 
 Set `stages.design.status = "in_progress"` and update state.json.
 
+### Resolve Extensions
+
+Follow the `skill-resolution` skill for stage `design`, agent `architect`. Run with role `backend` and role `frontend` separately if both have overrides, then merge. Show any warnings to the user.
+
 Spawn an `architect` agent. Pass it:
 - The full task file (requirements + subtasks)
 - The project config
+- The full extension resolution block under the heading `## Extensions`
 
 After the agent completes:
 1. The architect will have created ADR files in `.agent-os/decisions/`.

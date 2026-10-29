@@ -58,7 +58,7 @@ Clone this repository and configure your Claude Code project settings to load it
 
 | Command | Description |
 |---------|-------------|
-| `/agent-os:setup` | Initialize agent-os for this project. Detects and confirms tech stack. |
+| `/agent-os:setup` | Initialize agent-os for this project. Detects stack, offers to connect external skills. |
 | `/agent-os:start "<task>"` | Run a task through the complete 5-stage pipeline. |
 | `/agent-os:status` | Show current pipeline state, active task, and pending approvals. |
 | `/agent-os:approve` | Approve a pending gate and advance to the next stage. |
@@ -68,6 +68,10 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:design` | Run Stage 3 (Design) only. |
 | `/agent-os:develop` | Run Stage 4 (Development) only. |
 | `/agent-os:qa` | Run Stage 5 (QA) only. |
+| `/agent-os:skills list` | List all configured extensions and whether each file exists on disk. |
+| `/agent-os:skills add <stage> <name\|path>` | Add a skill, doc, agent, or command to a stage. |
+| `/agent-os:skills remove <stage> <name\|path>` | Remove an extension from a stage. |
+| `/agent-os:skills mode <stage>.<role> extend\|replace` | Set the tech-adaptation mode for a role. |
 
 ---
 
@@ -81,6 +85,110 @@ Clone this repository and configure your Claude Code project settings to load it
 | Backend Developer | Sonnet | Implements backend subtasks, adapts to detected stack |
 | Frontend Developer | Sonnet | Implements frontend subtasks, adapts to detected stack |
 | QA Engineer | Sonnet | Runs tests, verifies requirements, produces QA report |
+
+---
+
+---
+
+## Extensions
+
+Agent OS can use skills, docs, agents, and commands that you already have installed — from any Claude Code plugin or your own team guides.
+
+### Two Assignment Types
+
+**By stage/role** — applies to all agents running in that stage or role:
+- `discovery`, `planning`, `qa` — all agents in that stage
+- `design`, `design.backend`, `design.frontend`
+- `development.backend`, `development.frontend`
+
+**By agent** — applies only to one specific agent, regardless of stage:
+- `requirements-analyst`, `planner`, `architect`
+- `backend-developer`, `frontend-developer`, `qa-engineer`
+
+Agent-level config is merged on top of stage/role config. If both define `mode`, the agent-level value wins.
+
+### Combination Order
+
+For each agent spawn, the pipeline resolves extensions in four tiers (least → most specific):
+
+```
+context (global docs)
+  └── stages.<stage>         (all agents in the stage)
+        └── stages.<stage>.<role>  (backend or frontend agents only)
+              └── agents.<agent>   (this specific agent only)
+```
+
+Within each tier: project-level entries take priority over user-level, and more specific tiers take priority for mode. Lists are unioned without duplicates.
+
+### Three Configuration Levels
+
+| Level | Source | Priority |
+|-------|--------|----------|
+| Project | `.agent-os/config.json` → `extensions` | Highest |
+| User | `~/.agent-os/defaults.json` | Middle |
+| Plugin | Built-in tech-adaptation skill | Lowest |
+
+### Mode: extend vs replace
+
+- **`extend`** (default): built-in `tech-adaptation` is applied first, then your skills are added.
+- **`replace`**: `tech-adaptation` is skipped. Only your skills are used. Applies to architect, backend-developer, frontend-developer, and their stage/role equivalents.
+
+### Three Ways to Configure
+
+**1. Interactive menu** (recommended — no arguments needed):
+```
+/agent-os:skills
+```
+Guides you through selecting a destination, choosing elements, setting mode, and saving.
+
+**2. With arguments** (scripting):
+```bash
+# By stage/role
+/agent-os:skills add development.backend my-fastapi-guide
+/agent-os:skills add qa ~/docs/team-qa-checklist.md
+/agent-os:skills mode development.frontend replace
+
+# By agent
+/agent-os:skills add --agent architect my-arch-guide
+/agent-os:skills add --agent qa-engineer security-scanner
+/agent-os:skills mode --agent backend-developer replace
+
+# Write to user defaults instead of project config
+/agent-os:skills add --agent planner my-planning-guide --global
+
+# View what a specific agent or stage would load
+/agent-os:skills list --agent backend-developer
+/agent-os:skills list development.backend
+```
+
+**3. Edit JSON directly**: `.agent-os/config.json` → `extensions` (project) or `~/.agent-os/defaults.json` (user). See `schemas/config.schema.json` and `schemas/defaults.schema.json` for the full shape.
+
+### Example
+
+```json
+"extensions": {
+  "context": ["~/docs/team-principles.md"],
+  "agents": {
+    "architect": { "mode": "extend", "skills": ["my-arch-patterns"] },
+    "backend-developer": { "mode": "replace", "skills": ["my-fastapi-guide"], "docs": ["~/api-spec.md"] }
+  },
+  "stages": {
+    "development": {
+      "frontend": { "mode": "extend", "skills": ["react-conventions"] }
+    },
+    "qa": {
+      "agents": ["security-scanner"],
+      "commands": ["notify-slack"]
+    }
+  }
+}
+```
+
+In this example:
+- `architect` gets tech-adaptation + my-arch-patterns
+- `backend-developer` gets only my-fastapi-guide (no tech-adaptation)
+- `frontend-developer` gets tech-adaptation + react-conventions
+- `qa-engineer` runs alongside security-scanner; after approval, notify-slack is called (with an approval gate, since it has external effects)
 
 ---
 

@@ -22,9 +22,14 @@ Read `workflows/02-planning.md` and follow it completely.
 
 Set `stages.planning.status = "in_progress"` and `state.json.stage_status = "in_progress"`.
 
+### Resolve Extensions
+
+Follow the `skill-resolution` skill for stage `planning`, role `—`, agent `planner`. Show any warnings to the user.
+
 Spawn a `planner` agent. Pass it:
 - The task file (with approved requirements)
 - The project config
+- The full extension resolution block under the heading `## Extensions`
 
 After the agent completes:
 1. Update `task.subtasks` from the agent's output.

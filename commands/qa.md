@@ -21,11 +21,18 @@ Read `workflows/05-testing-qa.md` and follow it completely.
 
 Set `stages.qa.status = "in_progress"` and update state.json.
 
+### Resolve Extensions
+
+Follow the `skill-resolution` skill for stage `qa`, agent `qa-engineer`. Show any warnings to the user.
+
 Spawn a `qa-engineer` agent with:
 - The full task file
 - The project config
+- The full extension resolution block under the heading `## Extensions`
 
-After the agent returns:
+**Parallel agents**: If the resolution result lists Agents, spawn them simultaneously alongside `qa-engineer`. Collect all their reports and merge findings into a single QA report (union of all issues, most-severe first).
+
+After the agent(s) return:
 
 ### If APPROVE
 
@@ -34,7 +41,10 @@ No critical or major issues:
 2. Update `task.test_results` from QA report.
 3. Add `"qa"` to `stages_completed`.
 4. Set `task.status = "done"`, `task.completed_at = now`.
-5. Set `state.json`:
+5. **Post-QA commands**: If the extension resolution result includes Commands:
+   - For each command marked `[requires-gate]`: present an approval gate before running it. The gate must name the command and describe any external effects (push, deploy, publish). Wait for user approval.
+   - Run non-gate commands automatically.
+6. Set `state.json`:
    ```json
    {
      "current_stage": "idle",

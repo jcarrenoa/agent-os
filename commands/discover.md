@@ -28,10 +28,15 @@ Read `workflows/01-discovery.md` and follow it completely.
 Set `stages.discovery.status = "in_progress"` in the task file before spawning the agent.
 Set `state.json.stage_status = "in_progress"`.
 
+### Resolve Extensions
+
+Follow the `skill-resolution` skill for stage `discovery`, role `—`, agent `requirements-analyst`. Show any warnings to the user.
+
 Spawn a `requirements-analyst` agent. Pass it:
 - The task description
 - The project config path
 - The task file path
+- The full extension resolution block under the heading `## Extensions`
 
 After the agent completes:
 1. Update `task.requirements` from the agent's output.
