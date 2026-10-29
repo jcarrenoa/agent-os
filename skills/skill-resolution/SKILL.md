@@ -1,7 +1,7 @@
 ---
 name: skill-resolution
 description: Resolves which skills, docs, agents, and commands are active for a given pipeline stage, role, and agent, and resolves the agent-os plugin root. Use this skill before spawning any agent to determine what extensions are configured, and before reading any file bundled with the plugin (workflows, schemas, plugin skills). Called by every stage command (discover, plan, design, develop, qa) in the agent-os pipeline.
-version: 3.0.0
+version: 3.1.0
 ---
 
 # Skill Resolution Protocol
@@ -127,14 +127,30 @@ For the architect, use the role's search locations when resolving that role's se
 
 For each name in the merged `skills` list:
 
-1. **Prefixed plugin skill** (`agent-os:<name>`): `PLUGIN_ROOT/skills/<name>/SKILL.md` only.
+1. **Prefixed plugin skill** (`<plugin>:<skill>`, the same name Claude Code uses to invoke a plugin skill): look only inside that plugin.
+   - `agent-os:<skill>` → `PLUGIN_ROOT/skills/<skill>/SKILL.md`.
+   - Any other `<plugin>` → find its root with [Locating Another Plugin](#locating-another-plugin), then use the first existing file among `<root>/skills/<skill>/SKILL.md`, `<root>/<dir>/<skill>/SKILL.md` for each directory listed in the `skills` field of `<root>/.claude-plugin/plugin.json`, and `<root>/SKILL.md` when `<skill>` equals `<plugin>` (single-skill plugin).
 2. **Unprefixed name**: search in order, take the first match:
    a. Project locations (see above): `<location>/.claude/skills/<name>/SKILL.md`
    b. `~/.claude/skills/<name>/SKILL.md` (user)
    c. `PLUGIN_ROOT/skills/<name>/SKILL.md` (plugin)
-3. **Not found**: add warning `⚠ skill '<name>' not found — skipped`, continue.
+3. **Not found**: add warning `⚠ skill '<name>' not found — skipped`, continue. For a prefixed name whose plugin is not installed, use `⚠ skill '<plugin>:<skill>' not found (plugin '<plugin>' is not installed) — skipped`. Never stop the pipeline for a missing skill.
 
 The plugin default `tech-adaptation` always resolves to `PLUGIN_ROOT/skills/tech-adaptation/SKILL.md`.
+
+#### Locating Another Plugin
+
+There is no `${CLAUDE_PLUGIN_ROOT}` for other plugins, so their root is looked up on disk. `<plugin>` is the plugin's **manifest name** (`name` in its `.claude-plugin/plugin.json`), which is what Claude Code namespaces skills under. It can differ from the marketplace entry name used for installation and cache folders, so always confirm the manifest name.
+
+The plugins root is `~/.claude/plugins`, unless the `CLAUDE_CODE_PLUGIN_CACHE_DIR` environment variable points elsewhere.
+
+1. **Install registry**: read `<plugins root>/installed_plugins.json`. Claude Code records each install there with its `scope`, `installPath` and `version`, keyed by plugin id `<entry-name>@<marketplace>`. Do not depend on any other part of its layout: collect every record that has an `installPath`, and keep those whose `<installPath>/.claude-plugin/plugin.json` has `"name": "<plugin>"` (if a manifest has no `name`, compare the entry name before `@`).
+   - Ignore records whose `installPath` does not exist or contains an `.orphaned_at` marker (a superseded version waiting for cleanup).
+   - If several remain, prefer a record whose scope applies to this workspace (a `project` or `local` install for the workspace root) over a `user` install, then the most recent `version` / most recently modified directory.
+2. **Fallback glob** (no registry, or no match in it): glob `<plugins root>/cache/*/*/*/.claude-plugin/plugin.json`, `<plugins root>/synced/**/.claude-plugin/plugin.json`, `~/.claude/skills/*/.claude-plugin/plugin.json` and `.claude/skills/*/.claude-plugin/plugin.json`. Keep matches whose `name` is `<plugin>`, drop version directories with an `.orphaned_at` marker, and take the most recently modified one. The plugin root is the directory that contains `.claude-plugin/`.
+3. **Not found**: emit the warning from step 3 above and continue.
+
+Resolve each plugin root once per run and reuse it for every skill of that plugin.
 
 ### Docs
 
