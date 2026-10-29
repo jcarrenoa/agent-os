@@ -16,7 +16,7 @@
       "description": "Skill names to inject. Each name is looked up in the project .claude/skills/ (the role's subrepo first in monorepo/multi-repo), then ~/.claude/skills/, then the plugin.",
       "items": {
         "type": "string",
-        "description": "Skill name (e.g. 'my-team-guide') or prefixed plugin skill (e.g. 'agent-os:tech-adaptation')."
+        "description": "Skill name (e.g. 'my-team-guide') or a skill from an installed plugin as '<plugin>:<skill>', using the plugin's manifest name (e.g. 'agent-os:tech-adaptation', 'the-antislop:antislop')."
       }
     },
     "docList": {
