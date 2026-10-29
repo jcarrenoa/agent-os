@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.0.0",
+  "catalog_version": "1.1.0",
   "entries": [
     {
       "id": "antislop",
@@ -75,7 +75,11 @@
         "This recipe never runs 'codegraph install', which would edit your CLAUDE.md and MCP configuration. Agents use the CLI.",
         "'codegraph init' creates .codegraph/ (with its own .gitignore) in each repository and keeps the index in sync in the background; 'codegraph daemon' manages that process.",
         "The npm package has a preuninstall script that removes CodeGraph's agent integrations; since 'codegraph install' is never run, there is nothing for it to remove.",
-        "Requires Node.js >= 20 and < 25."
+        "Requires Node.js >= 20 and < 25.",
+        "The internal .codegraph/.gitignore ignores everything except itself, so git status would show .codegraph/. The 'exclude' step adds .codegraph/ to each repository's .git/info/exclude (a local, unversioned file) when it is not already there; uninstall removes that line only from the repositories where the installer added it."
+      ],
+      "uninstall_leaves": [
+        "~/.codegraph/telemetry.json (your telemetry choice) is kept on purpose, so a later reinstall keeps telemetry off. Delete ~/.codegraph/ yourself if you do not plan to reinstall."
       ],
       "source": {
         "type": "npm",
@@ -101,22 +105,26 @@
         "unix": [
           { "id": "install-cli", "description": "Install the CodeGraph CLI, pinned version", "run": "npm install -g @colbymchenry/codegraph@1.6.2" },
           { "id": "telemetry-off", "description": "Turn off anonymous usage telemetry (on by default upstream)", "run": "codegraph telemetry off", "optional": true },
-          { "id": "init", "description": "Build the code index in this repository (creates .codegraph/)", "run": "codegraph init --yes \"{repo_path}\"", "scope": "per_repo" }
+          { "id": "init", "description": "Build the code index in this repository (creates .codegraph/)", "run": "codegraph init --yes \"{repo_path}\"", "scope": "per_repo" },
+          { "id": "exclude", "description": "Hide .codegraph/ from git status by adding it to .git/info/exclude (local, not versioned), only if it is not already there", "run": "f=\"$(git -C \"{repo_path}\" rev-parse --path-format=absolute --git-path info/exclude 2>/dev/null)\"; if [ -z \"$f\" ]; then echo not-a-git-repo; elif [ -f \"$f\" ] && grep -qxF '.codegraph/' \"$f\"; then echo already-present; else mkdir -p \"$(dirname \"$f\")\" && { if [ -s \"$f\" ] && [ -n \"$(tail -c 1 \"$f\")\" ]; then echo >> \"$f\"; fi; printf '%s\\n' '.codegraph/' >> \"$f\"; } && echo added; fi", "scope": "per_repo", "record_output": "added" }
         ],
         "windows": [
           { "id": "install-cli", "description": "Install the CodeGraph CLI, pinned version", "run": "npm install -g @colbymchenry/codegraph@1.6.2" },
           { "id": "telemetry-off", "description": "Turn off anonymous usage telemetry (on by default upstream)", "run": "codegraph telemetry off", "optional": true },
-          { "id": "init", "description": "Build the code index in this repository (creates .codegraph/)", "run": "codegraph init --yes \"{repo_path}\"", "scope": "per_repo" }
+          { "id": "init", "description": "Build the code index in this repository (creates .codegraph/)", "run": "codegraph init --yes \"{repo_path}\"", "scope": "per_repo" },
+          { "id": "exclude", "description": "Hide .codegraph/ from git status by adding it to .git/info/exclude (local, not versioned), only if it is not already there", "run": "$f = git -C \"{repo_path}\" rev-parse --path-format=absolute --git-path info/exclude 2>$null; if (-not $f) { 'not-a-git-repo' } elseif ((Test-Path $f) -and (Select-String -Path $f -Pattern '^\\.codegraph/$' -Quiet)) { 'already-present' } else { New-Item -ItemType Directory -Force (Split-Path $f) | Out-Null; $c = if (Test-Path $f) { [IO.File]::ReadAllText($f) } else { '' }; $pre = if ($c.Length -gt 0 -and -not $c.EndsWith(\"`n\")) { \"`n\" } else { '' }; [IO.File]::AppendAllText($f, $pre + \".codegraph/`n\"); 'added' }; $global:LASTEXITCODE = 0", "scope": "per_repo", "record_output": "added" }
         ]
       },
       "uninstall": {
         "unix": [
           { "id": "uninit", "description": "Remove the code index from this repository (.codegraph/)", "run": "codegraph uninit --force \"{repo_path}\"", "scope": "per_repo", "optional": true },
+          { "id": "unexclude", "description": "Remove the .codegraph/ line the installer added to .git/info/exclude", "run": "f=\"$(git -C \"{repo_path}\" rev-parse --path-format=absolute --git-path info/exclude 2>/dev/null)\"; if [ -n \"$f\" ] && [ -f \"$f\" ]; then { grep -vxF '.codegraph/' \"$f\" || true; } > \"$f.agent-os.tmp\" && mv \"$f.agent-os.tmp\" \"$f\"; fi", "scope": "per_repo", "only_recorded_by": "exclude", "with_step": "uninit" },
           { "id": "uninstall-cli", "description": "Uninstall the CodeGraph CLI", "run": "npm uninstall -g @colbymchenry/codegraph" },
           { "id": "remove-wrapper", "description": "Remove the use-codegraph wrapper", "run": "rm -rf \"{home}/.claude/skills/use-codegraph\"" }
         ],
         "windows": [
           { "id": "uninit", "description": "Remove the code index from this repository (.codegraph/)", "run": "codegraph uninit --force \"{repo_path}\"", "scope": "per_repo", "optional": true },
+          { "id": "unexclude", "description": "Remove the .codegraph/ line the installer added to .git/info/exclude", "run": "$f = git -C \"{repo_path}\" rev-parse --path-format=absolute --git-path info/exclude 2>$null; if ($f -and (Test-Path $f)) { $lines = @([IO.File]::ReadAllLines($f) | Where-Object { $_ -ne '.codegraph/' }); [IO.File]::WriteAllText($f, $(if ($lines.Count -gt 0) { ($lines -join \"`n\") + \"`n\" } else { '' })) }; $global:LASTEXITCODE = 0", "scope": "per_repo", "only_recorded_by": "exclude", "with_step": "uninit" },
           { "id": "uninstall-cli", "description": "Uninstall the CodeGraph CLI", "run": "npm uninstall -g @colbymchenry/codegraph" },
           { "id": "remove-wrapper", "description": "Remove the use-codegraph wrapper", "run": "Remove-Item -Recurse -Force \"{home}\\.claude\\skills\\use-codegraph\"" }
         ]

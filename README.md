@@ -306,7 +306,8 @@ agent-os can install the recommended extensions itself, but only the ones in its
 
 How it works:
 
-- **You approve the exact commands.** Before anything runs, agent-os lists every command it will execute and every file it will write, together with each extension's license and risks (e.g. CodeGraph's telemetry). Optional steps such as `codegraph telemetry off` can be left out. Without your approval nothing is installed.
+- **You approve the exact commands.** Before anything runs, agent-os lists every command it will execute and every file it will write, together with each extension's license and risks (e.g. CodeGraph's telemetry). Optional steps such as `codegraph telemetry off` are included by default; leaving one out takes an explicit choice. Without your approval nothing is installed.
+- **Clean `git status`.** CodeGraph's `.codegraph/` is added to each repository's `.git/info/exclude` (local, never committed) if it is not already there. `uninstall` removes that line only where the installer added it, and keeps `~/.codegraph/telemetry.json` so a reinstall keeps telemetry off (the report says so; delete `~/.codegraph/` yourself if you will not reinstall).
 - **Pinned versions only.** Each catalog entry is pinned to an exact version or commit (CodeGraph `1.6.2`, The AntiSlop commit `f123fdc`). `update` only moves to the version pinned in the catalog. Nothing outside the catalog can be installed.
 - **Wrapper skills.** The installer writes small agent-os skills, `use-codegraph` and `use-antislop`, and assigns them in `~/.agent-os/defaults.json`:
   - `use-codegraph` (planner, backend-developer, frontend-developer, qa-engineer): runs `codegraph sync` and `codegraph explore` before reading code, and falls back to normal reads when there is no index. It never runs `codegraph install`, so your `CLAUDE.md` and MCP configuration are untouched.

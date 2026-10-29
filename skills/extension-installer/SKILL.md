@@ -1,7 +1,7 @@
 ---
 name: extension-installer
 description: Protocol to install, update, uninstall, and report the recommended extensions listed in the agent-os catalog (catalog/recommended.json), always after one explicit user approval of the exact commands. Used by /agent-os:extensions and by the optional recommended-extensions step of /agent-os:setup. Never installs anything that is not in the catalog.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Extension Installer Protocol
@@ -51,24 +51,30 @@ For each requested entry:
 
 ## Step 3: Build the Plan
 
-For each entry to act on, resolve every step of the chosen action and platform into the exact commands that will run (`per_repo` steps once per repository, with the path substituted). Then add the file actions:
+For each entry to act on, resolve every step of the chosen action and platform into the exact commands that will run (`per_repo` steps once per repository, with the path substituted). Step filters:
+
+- `only_recorded_by: <step id>` (uninstall): include the step only for what the record's `recorded_steps.<step id>` lists (only those repository paths for `per_repo` steps). Nothing recorded → leave the step out.
+- `with_step: <step id>`: the step stays only while that step stays in the plan (Step 4 can remove it).
+
+Then add the file actions:
 
 - **install / update**: write `~/.claude/skills/<wrapper.skill>/SKILL.md` from `PLUGIN_ROOT/<wrapper.template>` (copied verbatim); merge `assignments` into `~/.agent-os/defaults.json`; update `~/.agent-os/installed-extensions.json`.
 - **uninstall**: remove the assignments listed in the record's `assignments_added`; delete the record.
 
-Present the plan as Markdown, one section per entry: name, pinned version or commit, license, homepage, every `notes` item, state from Step 2, then a numbered list of the exact commands and file actions. Mark optional steps as `(opcional)` / `(optional)`.
+Present the plan as Markdown, one section per entry: name, pinned version or commit, license, homepage, every `notes` item, state from Step 2, then a numbered list of the exact commands and file actions. Mark optional steps as `(opcional, incluido)` / `(optional, included)`. For uninstall, also list every `uninstall_leaves` item.
 
 ## Step 4: Approval
 
-1. If the plan has optional steps, ask first which to keep:
+1. If the plan has optional steps, ask which to **omit**. Optional steps are included by default, so submitting without selecting anything keeps them all (for example, CodeGraph telemetry stays off). Leaving a step out always takes an explicit selection:
    ```
    AskUserQuestion:
-     question: "¿Qué pasos opcionales incluir?"
-     header: "Opcionales"
-     options: one per optional step: "<entry> · <step description>"
+     question: "Los pasos opcionales están incluidos. ¿Quieres omitir alguno?"
+     header: "Omitir"
+     options: one per optional step: "Omitir: <entry> · <step description>", with what happens if it is omitted
+              (e.g. "Omitir: CodeGraph · desactivar telemetría" — "La telemetría de CodeGraph queda ACTIVADA")
      multiSelect: true
    ```
-   Selected steps stay in the plan; unselected ones are removed and recorded as `skipped_steps`. Show the final command list again if it changed.
+   Selected steps are removed from the plan (with the steps that depend on them through `with_step`) and recorded as `skipped_steps`. No selection, or a free-text answer that does not clearly name a step, omits nothing. Show the final command list again if it changed.
 2. Then ask for the single approval:
    ```
    AskUserQuestion:
@@ -89,9 +95,10 @@ For each approved entry, in order:
 
 1. Run its steps in order, one tool call per command, exactly as shown in the plan.
 2. If a step fails (non-zero exit or an error message): stop that entry's remaining steps, run its cleanup step if the recipe has one, record `"<step id>: <error>"` in the entry's `errors`, tell the user, and continue with the next entry. Do not write the wrapper or the assignments of a failed entry.
-3. After the install steps succeed, run `installed_check` again. If it fails, treat it as a failed step.
-4. Write the wrapper file, unless Step 2 found a user-owned file there.
-5. Delete `{tmp}` at the end of the run.
+3. For a step with `record_output`: if its output contains that text, record it in `recorded_steps.<step id>` (append the repository path for `per_repo` steps, merging with the existing record on update). Any other output means the step changed nothing and is not recorded.
+4. After the install steps succeed, run `installed_check` again. If it fails, treat it as a failed step.
+5. Write the wrapper file, unless Step 2 found a user-owned file there.
+6. Delete `{tmp}` at the end of the run.
 
 ## Step 6: Assignments (install / update)
 
@@ -101,14 +108,14 @@ Merge the entry's `assignments` into `~/.agent-os/defaults.json` (create the fil
 - Never change `mode`, other skills, docs, stages, or any other key.
 - Record exactly the skills that were appended in `assignments_added` (merging with the existing record on update). Skills that were already present were not added by the installer and are not recorded.
 
-Then write the record in `~/.agent-os/installed-extensions.json`: `pin`, `catalog_version`, `wrapper_version`, `installed_at`, `repos`, `skipped_steps`, `assignments_added`, `errors` (empty on success).
+Then write the record in `~/.agent-os/installed-extensions.json`: `pin`, `catalog_version`, `wrapper_version`, `installed_at`, `repos`, `skipped_steps`, `recorded_steps`, `assignments_added`, `errors` (empty on success).
 
 ## Step 7: Uninstall
 
 1. Only entries with a record in `~/.agent-os/installed-extensions.json` can be uninstalled. An entry marked **present, not managed** is never removed.
 2. Run the approved uninstall steps (Step 5 rules apply).
 3. Remove from `~/.agent-os/defaults.json` only the skills listed in `assignments_added`, and only if they are still there. Remove an `agents.<agent>` object only if it ends up empty and contained nothing else.
-4. Delete the entry's record.
+4. Delete the entry's record. If an optional step was omitted and a `with_step` step was dropped with it (e.g. `.codegraph/` kept, so its `.git/info/exclude` line is kept too), say so in the report.
 
 ## Step 8: Report
 
@@ -122,6 +129,7 @@ Then write the record in `~/.agent-os/installed-extensions.json`: `pin`, `catalo
 
 Avisos:
 - [errors, unavailable requirements, skipped optional steps, user-owned files left untouched]
+- [after uninstall: every `uninstall_leaves` item of the entry, e.g. "Se conserva ~/.codegraph/telemetry.json (tu elección de telemetría) para que una reinstalación la mantenga desactivada; bórralo si no vas a reinstalar."]
 ```
 
 Translate the labels to the conversation language. For `status`, use the same table with the states from Step 2 and no changes.
