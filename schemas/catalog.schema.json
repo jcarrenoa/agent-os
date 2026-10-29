@@ -34,7 +34,21 @@
         "optional": {
           "type": "boolean",
           "default": false,
-          "description": "true = the user can leave this step out before approving. Optional steps are included unless the user deselects them."
+          "description": "true = the user can leave this step out before approving. Optional steps are included unless the user explicitly chooses to omit them."
+        },
+        "record_output": {
+          "type": "string",
+          "description": "If the command's output contains this text, the installer records the step for this run (the repository path for per_repo steps) in the record's recorded_steps. Used to undo only what the step actually changed."
+        },
+        "only_recorded_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Uninstall only: run this step only where the install step with this id was recorded (only for the recorded repository paths for per_repo steps). Nothing recorded = the step is not run."
+        },
+        "with_step": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Run this step only if the step with this id, in the same recipe, stays in the plan. Leaving that optional step out also leaves this one out."
         }
       }
     },
@@ -165,6 +179,11 @@
           "type": "array",
           "description": "Risks and behaviors the user must see before approving (telemetry, side effects, language limits).",
           "items": { "type": "string", "description": "One note." }
+        },
+        "uninstall_leaves": {
+          "type": "array",
+          "description": "What uninstall deliberately leaves on disk and why. Shown in the uninstall plan and in the final report.",
+          "items": { "type": "string", "description": "One leftover and the reason it is kept." }
         },
         "source": { "$ref": "#/definitions/source" },
         "requirements": {

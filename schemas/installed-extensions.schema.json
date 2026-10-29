@@ -42,6 +42,15 @@
             "description": "Optional step ids the user left out.",
             "items": { "type": "string", "description": "Step id." }
           },
+          "recorded_steps": {
+            "type": "object",
+            "description": "Install steps with record_output whose output matched, keyed by step id. Uninstall steps with only_recorded_by run only for these.",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Repository paths where the step changed something; an empty array for a once step that matched.",
+              "items": { "type": "string", "description": "Absolute repository path." }
+            }
+          },
           "assignments_added": {
             "type": "object",
             "description": "Skills the installer added to ~/.agent-os/defaults.json, per agent. Uninstall removes only these.",
