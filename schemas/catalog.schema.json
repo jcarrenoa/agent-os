@@ -1,0 +1,209 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent OS Recommended Extensions Catalog",
+  "description": "Shape of catalog/recommended.json: optional third-party extensions agent-os can install, always with explicit user approval. Only entries in this file can be installed. Every source is pinned to an exact version or commit.",
+  "type": "object",
+  "required": ["catalog_version", "entries"],
+  "additionalProperties": false,
+  "definitions": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "run"],
+      "description": "One command of a recipe. Placeholders: {home} (user home), {tmp} (a new temporary directory), {repo_path} (only in per_repo steps), {plugin_root}.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Step identifier, unique within the recipe."
+        },
+        "description": {
+          "type": "string",
+          "description": "What the step does, shown to the user before approval."
+        },
+        "run": {
+          "type": "string",
+          "description": "Exact command to run, with placeholders. Nothing else is ever run for this step."
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["once", "per_repo"],
+          "default": "once",
+          "description": "once = run a single time. per_repo = run once per repository: the workspace root for single, each workspace_paths value for monorepo and multi-repo."
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false,
+          "description": "true = the user can leave this step out before approving. Optional steps are included unless the user deselects them."
+        }
+      }
+    },
+    "platformSteps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unix", "windows"],
+      "description": "The same recipe for each platform.",
+      "properties": {
+        "unix": {
+          "type": "array",
+          "description": "Steps for Bash (Linux, macOS, Git Bash).",
+          "items": { "$ref": "#/definitions/step" }
+        },
+        "windows": {
+          "type": "array",
+          "description": "Steps for Windows PowerShell.",
+          "items": { "$ref": "#/definitions/step" }
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unix", "windows", "expect"],
+      "description": "A read-only command whose output decides a condition.",
+      "properties": {
+        "unix": {
+          "type": "string",
+          "description": "Command for Bash."
+        },
+        "windows": {
+          "type": "string",
+          "description": "Command for Windows PowerShell."
+        },
+        "expect": {
+          "type": "string",
+          "description": "Condition the command must meet, in plain words (e.g. 'exit code 0', 'output contains 1.6.2', 'major version between 20 and 24')."
+        }
+      }
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "check"],
+      "description": "A prerequisite checked before installing. If it is not met, the entry is not installed and the user is told why.",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "What is required, shown to the user."
+        },
+        "check": { "$ref": "#/definitions/check" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "location", "pin"],
+      "description": "Where the extension comes from, pinned. Never a floating version such as latest or a branch name.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["git", "npm"],
+          "description": "git = a repository at a pinned commit. npm = a package at a pinned version."
+        },
+        "location": {
+          "type": "string",
+          "description": "Repository URL or npm package name."
+        },
+        "pin": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9]+\\.[0-9]+\\.[0-9]+)$",
+          "description": "Full 40-character commit SHA for git, exact semver version for npm."
+        }
+      }
+    },
+    "wrapper": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill", "template", "version"],
+      "description": "An agent-os wrapper skill written by the installer. It tells agents how to use the extension inside the pipeline.",
+      "properties": {
+        "skill": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Skill name; written to ~/.claude/skills/<skill>/SKILL.md."
+        },
+        "template": {
+          "type": "string",
+          "description": "Template path relative to the plugin root."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Template version; a different installed version means the wrapper must be rewritten on update."
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "description", "homepage", "license", "source", "install", "installed_check", "uninstall", "assignments"],
+      "description": "One recommended extension and its recipe.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Catalog identifier used by /agent-os:extensions."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name."
+        },
+        "description": {
+          "type": "string",
+          "description": "What it does for the pipeline."
+        },
+        "homepage": {
+          "type": "string",
+          "format": "uri",
+          "description": "Upstream project URL."
+        },
+        "license": {
+          "type": "string",
+          "description": "SPDX license identifier."
+        },
+        "notes": {
+          "type": "array",
+          "description": "Risks and behaviors the user must see before approving (telemetry, side effects, language limits).",
+          "items": { "type": "string", "description": "One note." }
+        },
+        "source": { "$ref": "#/definitions/source" },
+        "requirements": {
+          "type": "array",
+          "description": "Prerequisites checked before installing.",
+          "items": { "$ref": "#/definitions/requirement" }
+        },
+        "installed_check": { "$ref": "#/definitions/check" },
+        "install": { "$ref": "#/definitions/platformSteps" },
+        "uninstall": { "$ref": "#/definitions/platformSteps" },
+        "wrapper": { "$ref": "#/definitions/wrapper" },
+        "assignments": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Skills added to agents.<agent>.skills in ~/.agent-os/defaults.json, in this order, when the entry is installed.",
+          "propertyNames": {
+            "enum": ["requirements-analyst", "planner", "architect", "backend-developer", "frontend-developer", "qa-engineer"]
+          },
+          "patternProperties": {
+            "^[a-z-]+$": {
+              "type": "array",
+              "description": "Skill names for this agent.",
+              "items": { "type": "string", "description": "Skill name." }
+            }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "catalog_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Version of this catalog. Bump it whenever a pin, recipe or template changes."
+    },
+    "entries": {
+      "type": "array",
+      "description": "Recommended extensions.",
+      "items": { "$ref": "#/definitions/entry" }
+    }
+  }
+}

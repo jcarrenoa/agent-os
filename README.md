@@ -72,6 +72,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:skills add <stage> <name\|path>` | Add a skill, doc, agent, or command to a stage. |
 | `/agent-os:skills remove <stage> <name\|path>` | Remove an extension from a stage. |
 | `/agent-os:skills mode <stage>.<role> extend\|replace` | Set whether the plugin default (tech-adaptation) is added for a role. |
+| `/agent-os:extensions [status\|install\|uninstall\|update]` | Check or install the recommended extensions from the catalog, after approving the exact commands. |
 
 ---
 
@@ -231,7 +232,7 @@ In this example:
 
 ### Recommended extensions
 
-Agent OS does not ship or depend on these tools. They are third-party projects that fit the pipeline well; **review their code before installing them.**
+Agent OS does not ship or depend on these tools. They are third-party projects that fit the pipeline well; **review their code before installing them.** agent-os can install them for you with your approval (see [Automatic installation](#automatic-installation)); the manual steps below still work.
 
 | Tool | What it does | Agents | Requirements |
 |------|--------------|--------|--------------|
@@ -295,6 +296,23 @@ Both examples go in `~/.agent-os/defaults.json` (all your projects).
 It is not recommended for the developers: it targets prose, not code.
 
 If a configured skill is not installed, skill-resolution shows `⚠ skill '<name>' not found — skipped` and the agent continues with its defaults. You can also assign skills with `/agent-os:skills` (menu → "Todos mis proyectos").
+
+### Automatic installation
+
+agent-os can install the recommended extensions itself, but only the ones in its catalog (`catalog/recommended.json`) and only with your explicit approval:
+
+- **During `/agent-os:setup`**: an optional step asks which recommended extensions to install ("Ninguna" installs nothing).
+- **Any time**: `/agent-os:extensions status` shows what is in the catalog, what is installed and in which version, and which agents use it. `install <id>`, `uninstall <id>` and `update <id>` change it.
+
+How it works:
+
+- **You approve the exact commands.** Before anything runs, agent-os lists every command it will execute and every file it will write, together with each extension's license and risks (e.g. CodeGraph's telemetry). Optional steps such as `codegraph telemetry off` can be left out. Without your approval nothing is installed.
+- **Pinned versions only.** Each catalog entry is pinned to an exact version or commit (CodeGraph `1.6.2`, The AntiSlop commit `f123fdc`). `update` only moves to the version pinned in the catalog. Nothing outside the catalog can be installed.
+- **Wrapper skills.** The installer writes small agent-os skills, `use-codegraph` and `use-antislop`, and assigns them in `~/.agent-os/defaults.json`:
+  - `use-codegraph` (planner, backend-developer, frontend-developer, qa-engineer): runs `codegraph sync` and `codegraph explore` before reading code, and falls back to normal reads when there is no index. It never runs `codegraph install`, so your `CLAUDE.md` and MCP configuration are untouched.
+  - `use-antislop` (requirements-analyst and architect, after `antislop` itself): audits only the prose the agent wrote. Structural patterns apply in any language; English-specific lexical patterns only when writing in English. It never runs the upstream pattern-refresh commands.
+- **Your configuration is preserved.** Assignments are merged into `~/.agent-os/defaults.json`; `uninstall` removes only what the installer added (recorded in `~/.agent-os/installed-extensions.json`). Files the installer did not create are never overwritten.
+- **Idempotent and non-blocking.** Running install again does nothing for an extension that is already up to date. A failed step is reported and recorded, and setup and the pipeline continue without that extension.
 
 ---
 

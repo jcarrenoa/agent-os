@@ -1,0 +1,137 @@
+{
+  "catalog_version": "1.0.0",
+  "entries": [
+    {
+      "id": "antislop",
+      "name": "The AntiSlop",
+      "description": "Detects and fixes AI-sounding writing patterns. Used in audit-only mode by the agents that write prose (requirements and ADRs), through the use-antislop wrapper.",
+      "homepage": "https://github.com/aplaceforallmystuff/the-antislop",
+      "license": "MIT",
+      "notes": [
+        "Its own install.sh is broken (it copies a SKILL.md that does not exist at the repository root), so this recipe copies skills/antislop/ instead.",
+        "Upstream defaults to an editor mode that edits files directly; the use-antislop wrapper restricts it to the text the agent itself produces.",
+        "Its final section contains curl | python3 commands that refresh patterns from Wikipedia; the wrapper forbids running them.",
+        "Many lexical patterns are English-specific; structural patterns apply in any language."
+      ],
+      "source": {
+        "type": "git",
+        "location": "https://github.com/aplaceforallmystuff/the-antislop.git",
+        "pin": "f123fdc53574b6bb84b9804c83b854d19cd210d7"
+      },
+      "requirements": [
+        {
+          "description": "git is installed",
+          "check": { "unix": "git --version", "windows": "git --version", "expect": "exit code 0" }
+        }
+      ],
+      "installed_check": {
+        "unix": "test -f \"{home}/.claude/skills/antislop/SKILL.md\"",
+        "windows": "Test-Path \"{home}\\.claude\\skills\\antislop\\SKILL.md\"",
+        "expect": "exit code 0 (unix) / output True (windows)"
+      },
+      "install": {
+        "unix": [
+          { "id": "clone", "description": "Clone the repository into a temporary directory", "run": "git clone --quiet https://github.com/aplaceforallmystuff/the-antislop.git \"{tmp}/the-antislop\"" },
+          { "id": "checkout", "description": "Check out the pinned commit", "run": "git -C \"{tmp}/the-antislop\" checkout --quiet f123fdc53574b6bb84b9804c83b854d19cd210d7" },
+          { "id": "copy-skill", "description": "Copy skills/antislop to ~/.claude/skills/antislop", "run": "mkdir -p \"{home}/.claude/skills/antislop\" && cp -R \"{tmp}/the-antislop/skills/antislop/.\" \"{home}/.claude/skills/antislop/\"" },
+          { "id": "cleanup", "description": "Remove the temporary clone", "run": "rm -rf \"{tmp}/the-antislop\"" }
+        ],
+        "windows": [
+          { "id": "clone", "description": "Clone the repository into a temporary directory", "run": "git clone --quiet https://github.com/aplaceforallmystuff/the-antislop.git \"{tmp}\\the-antislop\"" },
+          { "id": "checkout", "description": "Check out the pinned commit", "run": "git -C \"{tmp}\\the-antislop\" checkout --quiet f123fdc53574b6bb84b9804c83b854d19cd210d7" },
+          { "id": "copy-skill", "description": "Copy skills/antislop to ~/.claude/skills/antislop", "run": "New-Item -ItemType Directory -Force \"{home}\\.claude\\skills\\antislop\" | Out-Null; Copy-Item -Recurse -Force \"{tmp}\\the-antislop\\skills\\antislop\\*\" \"{home}\\.claude\\skills\\antislop\\\"" },
+          { "id": "cleanup", "description": "Remove the temporary clone", "run": "Remove-Item -Recurse -Force \"{tmp}\\the-antislop\"" }
+        ]
+      },
+      "uninstall": {
+        "unix": [
+          { "id": "remove-skill", "description": "Remove ~/.claude/skills/antislop", "run": "rm -rf \"{home}/.claude/skills/antislop\"" },
+          { "id": "remove-wrapper", "description": "Remove the use-antislop wrapper", "run": "rm -rf \"{home}/.claude/skills/use-antislop\"" }
+        ],
+        "windows": [
+          { "id": "remove-skill", "description": "Remove ~/.claude/skills/antislop", "run": "Remove-Item -Recurse -Force \"{home}\\.claude\\skills\\antislop\"" },
+          { "id": "remove-wrapper", "description": "Remove the use-antislop wrapper", "run": "Remove-Item -Recurse -Force \"{home}\\.claude\\skills\\use-antislop\"" }
+        ]
+      },
+      "wrapper": {
+        "skill": "use-antislop",
+        "template": "catalog/templates/use-antislop.md",
+        "version": "1.0.0"
+      },
+      "assignments": {
+        "requirements-analyst": ["antislop", "use-antislop"],
+        "architect": ["antislop", "use-antislop"]
+      }
+    },
+    {
+      "id": "codegraph",
+      "name": "CodeGraph",
+      "description": "Local graph of symbols, calls and imports. Agents with Bash query it with the codegraph CLI instead of grepping and reading files one by one, through the use-codegraph wrapper.",
+      "homepage": "https://github.com/colbymchenry/codegraph",
+      "license": "MIT",
+      "notes": [
+        "Several unrelated projects are called codegraph; this is colbymchenry/codegraph (npm @colbymchenry/codegraph).",
+        "Anonymous usage telemetry is ON by default upstream. The optional step 'telemetry-off' disables it; DO_NOT_TRACK=1 or CODEGRAPH_TELEMETRY=0 also disable it.",
+        "This recipe never runs 'codegraph install', which would edit your CLAUDE.md and MCP configuration. Agents use the CLI.",
+        "'codegraph init' creates .codegraph/ (with its own .gitignore) in each repository and keeps the index in sync in the background; 'codegraph daemon' manages that process.",
+        "The npm package has a preuninstall script that removes CodeGraph's agent integrations; since 'codegraph install' is never run, there is nothing for it to remove.",
+        "Requires Node.js >= 20 and < 25."
+      ],
+      "source": {
+        "type": "npm",
+        "location": "@colbymchenry/codegraph",
+        "pin": "1.6.2"
+      },
+      "requirements": [
+        {
+          "description": "Node.js >= 20 and < 25",
+          "check": { "unix": "node --version", "windows": "node --version", "expect": "major version between 20 and 24" }
+        },
+        {
+          "description": "npm is installed",
+          "check": { "unix": "npm --version", "windows": "npm --version", "expect": "exit code 0" }
+        }
+      ],
+      "installed_check": {
+        "unix": "codegraph --version",
+        "windows": "codegraph --version",
+        "expect": "output contains 1.6.2"
+      },
+      "install": {
+        "unix": [
+          { "id": "install-cli", "description": "Install the CodeGraph CLI, pinned version", "run": "npm install -g @colbymchenry/codegraph@1.6.2" },
+          { "id": "telemetry-off", "description": "Turn off anonymous usage telemetry (on by default upstream)", "run": "codegraph telemetry off", "optional": true },
+          { "id": "init", "description": "Build the code index in this repository (creates .codegraph/)", "run": "codegraph init --yes \"{repo_path}\"", "scope": "per_repo" }
+        ],
+        "windows": [
+          { "id": "install-cli", "description": "Install the CodeGraph CLI, pinned version", "run": "npm install -g @colbymchenry/codegraph@1.6.2" },
+          { "id": "telemetry-off", "description": "Turn off anonymous usage telemetry (on by default upstream)", "run": "codegraph telemetry off", "optional": true },
+          { "id": "init", "description": "Build the code index in this repository (creates .codegraph/)", "run": "codegraph init --yes \"{repo_path}\"", "scope": "per_repo" }
+        ]
+      },
+      "uninstall": {
+        "unix": [
+          { "id": "uninit", "description": "Remove the code index from this repository (.codegraph/)", "run": "codegraph uninit --force \"{repo_path}\"", "scope": "per_repo", "optional": true },
+          { "id": "uninstall-cli", "description": "Uninstall the CodeGraph CLI", "run": "npm uninstall -g @colbymchenry/codegraph" },
+          { "id": "remove-wrapper", "description": "Remove the use-codegraph wrapper", "run": "rm -rf \"{home}/.claude/skills/use-codegraph\"" }
+        ],
+        "windows": [
+          { "id": "uninit", "description": "Remove the code index from this repository (.codegraph/)", "run": "codegraph uninit --force \"{repo_path}\"", "scope": "per_repo", "optional": true },
+          { "id": "uninstall-cli", "description": "Uninstall the CodeGraph CLI", "run": "npm uninstall -g @colbymchenry/codegraph" },
+          { "id": "remove-wrapper", "description": "Remove the use-codegraph wrapper", "run": "Remove-Item -Recurse -Force \"{home}\\.claude\\skills\\use-codegraph\"" }
+        ]
+      },
+      "wrapper": {
+        "skill": "use-codegraph",
+        "template": "catalog/templates/use-codegraph.md",
+        "version": "1.0.0"
+      },
+      "assignments": {
+        "planner": ["use-codegraph"],
+        "backend-developer": ["use-codegraph"],
+        "frontend-developer": ["use-codegraph"],
+        "qa-engineer": ["use-codegraph"]
+      }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 ---
 description: Initialize agent-os in the current project. Run once per repository to configure the tech stack, project type, and preferences.
 argument-hint: [--reconfigure]
-allowed-tools: [Bash, Read, Write, Glob, Grep, AskUserQuestion]
+allowed-tools: [Bash, PowerShell, Read, Write, Glob, Grep, AskUserQuestion]
 ---
 
 # Agent OS Setup
@@ -308,9 +308,30 @@ If the user chose NOT to track it:
 - If yes, append `.agent-os/` to it.
 - If no, create `.gitignore` with `.agent-os/` as the first entry.
 
+## Step 5.5: Recommended Extensions (optional)
+
+Offer the extensions of the agent-os catalog. This step is optional and never blocks setup.
+
+1. Follow Steps 1–2 of the `extension-installer` skill (read-only) for every catalog entry in `${CLAUDE_PLUGIN_ROOT}/catalog/recommended.json`.
+2. If every entry is already up to date or unavailable: say so in one line and continue to Step 6.
+3. Otherwise ask, in `output_language`:
+   ```
+   AskUserQuestion:
+     question: "¿Instalar extensiones recomendadas? Antes de ejecutar nada verás los comandos exactos y tendrás que aprobarlos."
+     header: "Extensiones"
+     options:
+       - "<name> — <one-line description>" (one per entry that is not installed or outdated; at most 3, paginate as in the skills-menu skill if there are more)
+       - "Ninguna" — no instalar nada
+     multiSelect: true
+   ```
+4. If nothing is selected, or "Ninguna" is among the selections: install nothing and continue to Step 6.
+5. Otherwise follow Steps 3–8 of the `extension-installer` skill for the selected entries. If the user does not approve the commands, nothing is installed; continue to Step 6 either way.
+
 ## Step 6: Confirm Setup Complete
 
 Output formatted Markdown in `output_language`, using the same style as the Step 2 detection (headings + one table per role). **Render this block exactly in this structure. Do NOT summarize it in a prose sentence.** Apply the same rules as Step 2 for paths (`raíz` / root for `single`), roles outside the focus, shared commands, undetected Mobile/Database and `—` for missing values, using the values saved in `config.json`.
+
+If Step 5.5 installed or tried to install extensions, add its Step 8 report table as a `### 🧩 Extensiones recomendadas` section before `### ▶️ Próximos pasos`, and add the row `/agent-os:extensions` (estado y gestión de las extensiones) to the next-steps table.
 
 Template (Spanish labels; translate them when `output_language = "en"`):
 
