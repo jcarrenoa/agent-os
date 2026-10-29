@@ -123,6 +123,13 @@ Within each tier, user-level entries come first and project-level entries after 
 
 The architect works for every role, so it gets a shared section plus one section per role active in `focus` (each with its own mode) instead of a merged list.
 
+### Skill names
+
+- `my-skill`: looked up in the project's `.claude/skills/` (the role's subrepo first in monorepo/multi-repo), then `~/.claude/skills/`, then agent-os itself.
+- `<plugin>:<skill>`: a skill from an installed plugin, written the same way Claude Code invokes it (`<plugin>` is the plugin's manifest name). agent-os finds the plugin through Claude Code's install registry (`~/.claude/plugins/installed_plugins.json`), or by scanning the plugin cache when there is no registry. `agent-os:<skill>` always points at agent-os's own skills.
+
+A skill that cannot be found produces a warning and is skipped; the pipeline keeps going.
+
 ### Three Configuration Levels
 
 | Level | Source | Priority |
@@ -229,7 +236,7 @@ Agent OS does not ship or depend on these tools. They are third-party projects t
 | Tool | What it does | Agents | Requirements |
 |------|--------------|--------|--------------|
 | [CodeGraph](https://github.com/colbymchenry/codegraph) (`colbymchenry/codegraph`, npm `@colbymchenry/codegraph`) | Local graph of symbols, calls and imports (index in `.codegraph/`). Agents query it instead of grepping and reading files one by one. | planner, backend-developer, frontend-developer, qa-engineer | MCP server + CLI, **not a skill**. Subagents reach it through the `codegraph` CLI, so they need `Bash` (see below). `codegraph init` in every repo you want indexed. |
-| [The AntiSlop](https://github.com/aplaceforallmystuff/the-antislop) (`aplaceforallmystuff/the-antislop`, MIT) | Detects and fixes AI-sounding writing patterns. | requirements-analyst, architect | Skill `antislop` installed in `~/.claude/skills/antislop/` (see below). |
+| [The AntiSlop](https://github.com/aplaceforallmystuff/the-antislop) (`aplaceforallmystuff/the-antislop`, MIT) | Detects and fixes AI-sounding writing patterns. | requirements-analyst, architect | Plugin `the-antislop` (assign `the-antislop:antislop`), or the skill copied to `~/.claude/skills/antislop/` (assign `antislop`). See below. |
 
 > Several unrelated projects are called "codegraph". The one meant here is `colbymchenry/codegraph`.
 
@@ -249,14 +256,30 @@ codegraph init                            # run in each repo to index (creates .
 
 #### The AntiSlop
 
-agent-os looks up skills in `.claude/skills/`, `~/.claude/skills/` and its own plugin, not in other plugins. Its marketplace install (`/plugin install the-antislop@aplaceforallmystuff`) is therefore not visible to agent-os. Also, the repository keeps the skill in `skills/antislop/`, so cloning the whole repo into `~/.claude/skills/` does not produce a loadable skill. Copy the skill folder instead:
+Install it either way; the name you assign depends on how it was installed.
+
+**As a plugin (recommended):** the plugin's manifest name is `the-antislop` and its skill is `antislop`, so the name to assign is `the-antislop:antislop`.
+
+```
+/plugin marketplace add aplaceforallmystuff/marketplace
+/plugin install the-antislop@aplaceforallmystuff
+```
+
+```json
+{
+  "agents": {
+    "requirements-analyst": { "skills": ["the-antislop:antislop"] },
+    "architect": { "mode": "extend", "skills": ["the-antislop:antislop"] }
+  }
+}
+```
+
+**As a plain skill:** the repository keeps the skill in `skills/antislop/`, so cloning the whole repo into `~/.claude/skills/` does not produce a loadable skill. Copy the skill folder instead and assign it as `antislop`:
 
 ```bash
 git clone https://github.com/aplaceforallmystuff/the-antislop.git /tmp/the-antislop
 cp -r /tmp/the-antislop/skills/antislop ~/.claude/skills/antislop
 ```
-
-Then assign it in `~/.agent-os/defaults.json` (all your projects):
 
 ```json
 {
@@ -266,6 +289,8 @@ Then assign it in `~/.agent-os/defaults.json` (all your projects):
   }
 }
 ```
+
+Both examples go in `~/.agent-os/defaults.json` (all your projects).
 
 It is not recommended for the developers: it targets prose, not code.
 
