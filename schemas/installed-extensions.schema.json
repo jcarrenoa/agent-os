@@ -35,7 +35,7 @@
           "repos": {
             "type": "array",
             "description": "Repository paths where per_repo steps ran.",
-            "items": { "type": "string", "description": "Absolute path." }
+            "items": { "type": "string", "description": "Absolute path with forward slashes (C:/Users/... on Windows)." }
           },
           "skipped_steps": {
             "type": "array",
@@ -48,7 +48,7 @@
             "additionalProperties": {
               "type": "array",
               "description": "Repository paths where the step changed something; an empty array for a once step that matched.",
-              "items": { "type": "string", "description": "Absolute repository path." }
+              "items": { "type": "string", "description": "Absolute repository path with forward slashes (C:/Users/... on Windows)." }
             }
           },
           "assignments_added": {
