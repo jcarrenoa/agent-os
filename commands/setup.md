@@ -79,6 +79,7 @@ Then ask:
 > Also tell me:
 > - **Team size**: solo / small (2-5) / large (6+)
 > - **Track `.agent-os/` in git?** (recommended: yes — enables team collaboration and history)
+> - **Preferred language for agent responses**: `en` (English) / `es` (Español)
 
 **Wait for the user's response before continuing.**
 
@@ -131,7 +132,8 @@ After confirmation, create these files and directories:
   "preferences": {
     "track_state_in_git": [true if user said yes],
     "require_architecture_approval": true,
-    "require_requirements_approval": true
+    "require_requirements_approval": true,
+    "output_language": "[en or es, default en]"
   }
 }
 ```

@@ -10,6 +10,10 @@ You are running a task through the complete agent-os 5-stage pipeline.
 
 Task description: $ARGUMENTS
 
+## Language
+
+After confirming `.agent-os/config.json` exists, read `preferences.output_language` and write ALL pipeline messages, gate prompts, and status updates in that language (`"en"` = English, `"es"` = Spanish).
+
 ## Pre-Check
 
 1. Verify `.agent-os/config.json` exists. If not: tell the user to run `/agent-os:setup` first and stop.
@@ -65,15 +69,11 @@ APPROVAL REQUIRED: Requirements
 ─────────────────────────────────────────
 [List requirements captured]
 
-To proceed to Planning:
-  Run `/agent-os:approve` or reply "approve"
-  Or describe changes needed
+Reply "approve" to continue to Planning, or describe any changes needed.
 ─────────────────────────────────────────
 ```
 
-**STOP and wait for user response.**
-
-When approved: record approval in task file and state.json, then continue to Stage 2.
+**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.) or requests changes and you apply them: record approval in the task file and state.json, then immediately continue to Stage 2 without stopping.
 
 ---
 
@@ -123,15 +123,11 @@ APPROVAL REQUIRED: Architecture
 Architecture Decisions recorded:
 [List ADRs]
 
-To proceed to Development:
-  Run `/agent-os:approve` or reply "approve"
-  Or describe changes needed
+Reply "approve" to continue to Development, or describe any changes needed.
 ─────────────────────────────────────────
 ```
 
-**STOP and wait for user response.**
-
-When approved: record approval, then continue to Stage 4.
+**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.) or requests changes and you apply them: record approval, then immediately continue to Stage 4 without stopping.
 
 ---
 

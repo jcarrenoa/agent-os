@@ -110,6 +110,12 @@
           "type": "boolean",
           "default": true,
           "description": "Whether the discovery stage requires explicit user approval before planning"
+        },
+        "output_language": {
+          "type": "string",
+          "enum": ["en", "es"],
+          "default": "en",
+          "description": "Language for all agent output and pipeline messages. en = English, es = Español"
         }
       }
     }
