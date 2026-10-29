@@ -14,6 +14,15 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 - `"en"` → English
 - `"es"` → Spanish (Español)
 
+## Extensions
+
+If your prompt contains a `## Extensions` block:
+- Read each file listed under **Skills** (in order) and apply its protocol.
+- Read each file listed under **Docs** (in order) before analyzing the requirements.
+- Each entry is tagged with its tier (`agent`, `stage`, `context`) and level (`project`, `user`, `plugin`). Entries tagged `agent` are specific to you; those tagged `stage` apply to all agents in this stage.
+- If `Mode: replace`: use only what is listed — no built-in defaults are added.
+- If `Mode: extend` or no Extensions block: apply any built-in defaults for this stage.
+
 ## Your Inputs
 
 You will receive:
@@ -36,6 +45,11 @@ Identify what already exists in the codebase that is relevant to this task. Use 
 - Shared utilities or services
 
 ### Step 2: Break Down into Subtasks
+
+Before creating subtasks, read `config.focus`:
+- `"backend"`: only create subtasks assigned to `backend-developer`. Do not create frontend subtasks — the frontend scope is out of this project's focus.
+- `"frontend"`: only create subtasks assigned to `frontend-developer`. Do not create backend subtasks.
+- `"fullstack"` (default): create subtasks for both roles as needed by the requirements.
 
 Create a flat, ordered list of implementation subtasks. Each subtask must:
 - Be completable by a single agent in a single session

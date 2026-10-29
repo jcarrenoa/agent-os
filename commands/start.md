@@ -46,10 +46,13 @@ Tell the user: "Created TASK-NNN: [title]. Starting Stage 1: Discovery."
 
 Read `workflows/01-discovery.md` and follow it completely.
 
+Follow the `skill-resolution` skill for stage `discovery`, agent `requirements-analyst`. Show any warnings.
+
 Spawn a `requirements-analyst` agent with:
 - The task description
 - The path to `config.json`
 - The path to the new task file
+- The extension resolution block under the heading `## Extensions`
 
 After the agent returns, record its output in the task file:
 - `stages.discovery.status = "in_progress"` → update to `"awaiting_approval"` after agent completes
@@ -81,9 +84,12 @@ Reply "approve" to continue to Planning, or describe any changes needed.
 
 Read `workflows/02-planning.md` and follow it completely.
 
+Follow the `skill-resolution` skill for stage `planning`, agent `planner`. Show any warnings.
+
 Spawn a `planner` agent with:
 - The approved task file (with requirements)
 - The project config
+- The extension resolution block under the heading `## Extensions`
 
 After the agent returns:
 - `stages.planning.status = "done"`
@@ -99,9 +105,12 @@ Update `current_stage = "design"`.
 
 Read `workflows/03-design-architecture.md` and follow it completely.
 
+Follow the `skill-resolution` skill for stage `design`, agent `architect` (merge backend and frontend role results). Show any warnings.
+
 Spawn an `architect` agent with:
 - The task file (requirements + subtasks)
 - The project config
+- The extension resolution block under the heading `## Extensions`
 
 After the agent returns:
 - `stages.design.status = "awaiting_approval"`
@@ -135,9 +144,21 @@ Reply "approve" to continue to Development, or describe any changes needed.
 
 Read `workflows/04-development.md` and follow it completely.
 
-For each subtask in the plan:
+Follow the `skill-resolution` skill for stage `development` twice: (role `backend`, agent `backend-developer`) and (role `frontend`, agent `frontend-developer`). For each, check for a scaffold skill and run it first if `project_type = "new"`. Show any warnings.
+
+Read `config.focus` and `config.workspace_type`:
+- `"backend"`: skip all subtasks assigned to `frontend-developer`.
+- `"frontend"`: skip all subtasks assigned to `backend-developer`.
+- `"fullstack"` (default): run all subtasks.
+
+For `monorepo` or `multi-repo`: pass `working_directory: [config.workspace_paths.backend]` to backend agents and `working_directory: [config.workspace_paths.frontend]` to frontend agents.
+
+For each subtask in the plan (applying focus filtering above):
 1. Identify the assigned agent role (`backend-developer` or `frontend-developer`).
-2. Spawn the appropriate agent with the subtask details, task file, and project config.
+2. Spawn the appropriate agent with:
+   - The subtask details, task file, and project config
+   - The extension resolution block for that role under the heading `## Extensions`
+   - `working_directory: [path]` if workspace_type is `monorepo` or `multi-repo`
 3. Wait for the agent to complete.
 4. Record the result (files modified, completion status) in the task file.
 
@@ -157,13 +178,18 @@ Update `current_stage = "qa"`.
 
 Read `workflows/05-testing-qa.md` and follow it completely.
 
-Spawn a `qa-engineer` agent with the full task file and project config.
+Follow the `skill-resolution` skill for stage `qa`, agent `qa-engineer`. Show any warnings.
+
+Spawn a `qa-engineer` agent (and any extra Agents from the resolution result in parallel) with:
+- The full task file and project config
+- The extension resolution block under the heading `## Extensions`
 
 After the agent returns:
 - If recommendation is `APPROVE`:
   - `stages.qa.status = "done"`
   - Add `"qa"` to `stages_completed`
   - Set `task.status = "done"`, `task.completed_at = now`
+  - Run any post-QA Commands from extensions (present approval gate for commands marked `[requires-gate]`)
   - Set `state.json: current_stage = "idle", active_task_id = null`
   - Show completion summary
 

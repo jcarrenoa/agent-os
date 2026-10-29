@@ -43,6 +43,68 @@ Detect:
 - Dev server command
 - Build command
 
+Also detect workspace structure:
+- Use Glob with pattern `*/.git` to find sub-repos (directories containing their own `.git`).
+- Use Glob with patterns `backend/package.json`, `api/package.json`, `server/package.json`, `frontend/package.json`, `client/package.json`, `web/package.json`, `backend/pyproject.toml`, `api/pyproject.toml`, `server/pyproject.toml` to find sub-project directories.
+- Record: `sub_repos_found` (list of sub-directories with `.git`), `sub_project_dirs` (directories with project files detected above).
+
+## Step 1.5: Determine Workspace Structure
+
+Using the workspace detection results from Step 1, suggest a workspace type:
+- If any sub-repos were found (e.g., `backend/.git`): suggest `multi-repo`
+- Else if current directory is a git repo AND backend/frontend sub-project dirs were found: suggest `monorepo`
+- Else: suggest `single`
+
+Ask:
+
+```
+AskUserQuestion:
+  question: "¿Cómo está estructurado este proyecto?"
+  header: "Estructura"
+  multiSelect: false
+  options:
+    - "Proyecto único" (add "(Recomendado)" if single is suggested)
+      description: "Este directorio es el proyecto completo. Un repo, un stack."
+    - "Monorepo" (add "(Recomendado)" if monorepo is suggested)
+      description: "Este repo git raíz contiene back y front como subcarpetas del mismo repo."
+    - "Multi-repo" (add "(Recomendado)" if multi-repo is suggested)
+      description: "El back y el front son repos git separados dentro de este directorio. La raíz no es un repo git."
+```
+
+**After workspace type is selected:**
+
+**If `single`:**
+- If BOTH frontend AND backend were detected: use AskUserQuestion to ask:
+  ```
+  question: "¿Qué parte del stack activas para este proyecto?"
+  header: "Alcance"
+  options:
+    - "Fullstack (Recomendado)" — "Se usarán backend-developer y frontend-developer."
+    - "Solo backend" — "Solo backend-developer. No habrá subtareas de frontend."
+    - "Solo frontend" — "Solo frontend-developer. No habrá subtareas de backend."
+  ```
+- If only frontend detected: set `focus = "frontend"` automatically. Inform user.
+- If only backend detected: set `focus = "backend"` automatically. Inform user.
+- If neither detected clearly: set `focus = "fullstack"`.
+- Set `workspace_paths = {}` (not used for single).
+
+**If `monorepo` or `multi-repo`:**
+- Set `focus = "fullstack"` automatically (both repos are active).
+- Glob all immediate subdirectories for project file indicators to build a candidate list.
+- Ask two separate AskUserQuestion calls (≤3 candidates + Other each):
+  ```
+  question: "¿En qué carpeta está el backend?"
+  header: "Backend path"
+  options: [up to 3 detected backend candidates] + Other
+  ```
+  ```
+  question: "¿En qué carpeta está el frontend?"
+  header: "Frontend path"
+  options: [up to 3 detected frontend candidates, excluding chosen backend dir] + Other
+  ```
+- After paths are confirmed, detect the tech stack within each path by reading their dependency files (package.json, pyproject.toml, etc.). This supplements or replaces the top-level detection for frontend/backend fields.
+- Set `workspace_paths = { "backend": "[chosen path]", "frontend": "[chosen path]" }`.
+
 ## Step 2: Present Detection Results and Collect Configuration
 
 Present your findings clearly:
@@ -53,6 +115,10 @@ Agent OS — Project Detection
 ─────────────────────────────────────────
 Project name:   [name]
 Project type:   [new|existing|legacy]
+Workspace:      [single|monorepo|multi-repo]
+Focus:          [fullstack|backend|frontend]
+Backend path:   [path or "—" if single]
+Frontend path:  [path or "—" if single]
 
 Frontend:       [detected technology or "not detected"]
 Backend:        [detected technology or "not detected"]
@@ -66,7 +132,7 @@ Build command:  [command or "not found"]
 ─────────────────────────────────────────
 ```
 
-Then use the **AskUserQuestion tool** to collect all configuration in one step. Present these 4 questions simultaneously:
+Then use the **AskUserQuestion tool** to collect configuration. For `multi-repo` projects, present **3 questions** (skip question 3 below — the workspace root is not a git repo, so `.agent-os/` cannot be committed from there). For `single` and `monorepo`, present all **4 questions** simultaneously:
 
 1. Header: "Stack" — "Is the detected stack correct?"
    - "Yes, everything is correct" (description: "Proceed with the detected values")
@@ -86,6 +152,32 @@ Then use the **AskUserQuestion tool** to collect all configuration in one step. 
    - "Español" (description: "Todos los agentes responden en español")
 
 **Wait for the user's selections before continuing.**
+
+## Step 2.5: Configure Extensions (optional)
+
+Run this step after receiving the user's answers from Step 2 but before writing any files.
+
+1. Glob for external skills:
+   - `.claude/skills/*/SKILL.md` (project-level)
+   - `~/.claude/skills/*/SKILL.md` (user-level, if accessible)
+   
+2. If **no external skills, agents, or commands found AND no user defaults exist**: skip to Step 3. Do not write an `extensions` key in config.json.
+
+3. If anything is available, ask:
+   ```
+   AskUserQuestion:
+     question: "¿Quieres conectar skills o docs al pipeline ahora?"
+     header: "Extensiones"
+     options:
+       - "Por agente (Recomendado)"
+       - "Por etapa y rol"
+       - "Omitir por ahora"
+     multiSelect: false
+   ```
+
+4. If user chose "Por agente" or "Por etapa y rol": follow the `skills-menu` skill, starting directly from **Step B** (skip Step A — the action is already determined). After the menu finishes, continue to Step 3.
+
+5. If "Omitir por ahora": skip to Step 3. Do not write an `extensions` key.
 
 ## Step 3: Apply Corrections (if needed)
 
@@ -110,6 +202,12 @@ After confirmation, create these files and directories:
   "updated_at": "[ISO timestamp]",
   "description": "[from README or empty string]",
   "project_type": "[new|existing|legacy]",
+  "workspace_type": "[single|monorepo|multi-repo]",
+  "focus": "[fullstack|backend|frontend]",
+  "workspace_paths": {
+    "backend": "[relative path or omit if single]",
+    "frontend": "[relative path or omit if single]"
+  },
   "tech_stack": {
     "frontend": "[value]",
     "backend": "[value]",
@@ -160,6 +258,12 @@ Create a placeholder `.agent-os/tasks/.gitkeep` and `.agent-os/decisions/.gitkee
 
 ## Step 5: Git Configuration
 
+**If `workspace_type = "multi-repo"`:**
+- Skip the git tracking question — it was not asked.
+- Inform the user: "`.agent-os/` is stored in the workspace root. Since the root is not a git repo, it will not be tracked in git. To version it, you can copy it into one of your sub-repos manually."
+
+**If `workspace_type = "single"` or `"monorepo"`:**
+
 If the user chose to track `.agent-os/` in git:
 - Do NOT add anything to `.gitignore`.
 - Inform the user: "`.agent-os/` will be tracked in git. Commit it as part of your normal workflow."
@@ -177,8 +281,12 @@ Output:
 ─────────────────────────────────────────
 Agent OS — Setup Complete
 ─────────────────────────────────────────
-Project: [name]
-Stack:   [frontend] + [backend]
+Project:   [name]
+Workspace: [single|monorepo|multi-repo]
+Focus:     [fullstack|backend|frontend]
+Stack:     [frontend] + [backend]
+[Backend path: [path]]   ← only shown if monorepo or multi-repo
+[Frontend path: [path]]  ← only shown if monorepo or multi-repo
 
 Next steps:
   /agent-os:start "describe your first task"   ← Full 5-stage pipeline

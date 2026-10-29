@@ -22,9 +22,33 @@ Read `workflows/04-development.md` and follow it completely.
 
 Set `stages.development.status = "in_progress"` and update state.json.
 
+### Resolve Extensions
+
+Before executing any subtasks, follow the `skill-resolution` skill for stage `development`:
+- For backend subtasks: role `backend`, agent `backend-developer`
+- For frontend subtasks: role `frontend`, agent `frontend-developer`
+
+**Scaffold check**: If the resolution result for either role includes a `Scaffold` skill (non-null), run that skill before the first subtask for that role. Only applies when `config.project_type = "new"`.
+
+Show any warnings to the user.
+
+### Focus and Working Directory
+
+Before iterating subtasks, read `config.focus` and `config.workspace_type`:
+
+**Focus filtering:**
+- `"backend"`: skip any subtask where `assigned_to = "frontend-developer"`. Inform user: "Frontend subtasks skipped (focus=backend)."
+- `"frontend"`: skip any subtask where `assigned_to = "backend-developer"`. Inform user: "Backend subtasks skipped (focus=frontend)."
+- `"fullstack"` (default): run all subtasks.
+
+**Working directory** (for `monorepo` or `multi-repo`):
+- `backend-developer` agents receive `working_directory: [config.workspace_paths.backend]`
+- `frontend-developer` agents receive `working_directory: [config.workspace_paths.frontend]`
+- For `single`, do NOT pass `working_directory` (agents work from the project root).
+
 ### Subtask Execution
 
-Read the `subtasks` array from the task file. For each subtask in dependency order:
+Read the `subtasks` array from the task file. For each subtask in dependency order (applying focus filtering above):
 
 1. Identify the assigned role: `backend-developer` or `frontend-developer`.
 2. Spawn the appropriate agent with:
@@ -32,6 +56,8 @@ Read the `subtasks` array from the task file. For each subtask in dependency ord
    - The task file
    - The project config
    - The relevant ADR files from `.agent-os/decisions/`
+   - The extension resolution block for that role under the heading `## Extensions`
+   - `working_directory: [path]` if workspace_type is `monorepo` or `multi-repo` (see above)
 3. After the agent completes:
    - Update the subtask `status = "done"` in the task file.
    - Append modified/created files to `task.files_modified`.

@@ -14,17 +14,26 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 - `"en"` → English
 - `"es"` → Spanish (Español)
 
+## Extensions
+
+If your prompt contains a `## Extensions` block:
+- Read each file listed under **Skills** (in order) and apply its implementation protocol.
+- Read each file listed under **Docs** (in order) before writing code.
+- Each entry is tagged with its tier (`agent`, `role`, `stage`, `context`) and level (`project`, `user`, `plugin`). Entries tagged `agent` are specific to you and override role/stage entries on mode.
+- If `Mode: replace`: use only what is listed — do not apply tech-adaptation.
+- If `Mode: extend` or no Extensions block: read `skills/tech-adaptation/SKILL.md` and apply it.
+
 ## Startup Sequence
 
 Before writing any code:
 
+0. If your prompt includes a `working_directory` field: prepend it to ALL file paths you use in Read, Write, Edit, Glob, and Grep. Example: if `working_directory` is `backend-repo/` and the file is `src/main.py`, use `backend-repo/src/main.py`. Also run all Bash commands from inside this directory (`cd [working_directory] && [command]`).
 1. Read `.agent-os/config.json` — identify `tech_stack.backend`, `tech_stack.database`, `tech_stack.package_manager`.
 2. Read `.agent-os/tasks/TASK-NNN.json` — understand the requirements, the plan, and your specific subtask.
 3. Read the architecture output from Stage 3 (look in the task's `stages.design.output_summary` and the linked ADRs in `.agent-os/decisions/`).
 4. Read `CLAUDE.md` — apply any project-specific conventions.
 5. Read the most relevant existing backend files to understand current patterns.
-
-**Apply the architecture patterns for your stack** as defined in `skills/tech-adaptation/SKILL.md`.
+6. Apply Extensions: read each skill and doc from the `## Extensions` block (or tech-adaptation if no Extensions block is present).
 
 ## Implementation Rules
 
