@@ -107,29 +107,63 @@ AskUserQuestion:
 
 ## Step 2: Present Detection Results and Collect Configuration
 
-Present your findings clearly:
+Present your findings as formatted Markdown (the terminal renders it). **Render this block exactly in this structure (headings + tables). Do NOT summarize the detection in a prose sentence.**
 
+`output_language` is not chosen yet at this point: write the labels in the language the user is writing in (the template below shows the Spanish labels; translate them for English).
+
+Rules:
+- **Role sections** (Backend, Frontend): one heading + table per role. The heading shows the role's `workspace_paths` value (e.g. `api/`), or `raíz` for `single`.
+- **Commands**: in `multi-repo`, and in `monorepo` when each subdirectory has its own commands, put Tests/Dev/Build inside each role table. In `single`, or in a `monorepo` whose commands are defined once at the root, drop those three rows from the role tables and show them once in a **🧰 Comandos del proyecto** section.
+- **Focus**: when `focus` excludes a role, keep only its heading with the suffix `(fuera de foco)` and a single line with the detected technology, without a table. This keeps the detection visible without suggesting that agents will work on that role.
+- **Mobile / Database**: give each its own section (same table style: Tecnología, plus Lenguaje/Gestor de paquetes where relevant) only if detected. Otherwise list it in a single final line: `No detectado: Mobile, Base de datos`.
+- **Missing values**: use `—`. Never write "not detected" or "not found" inside a table.
+
+Template (`fullstack`, `multi-repo`):
+
+```markdown
+## 🔍 Agent OS — Detección del proyecto
+
+**Proyecto:** `[name]` · **Tipo:** [new|existing|legacy] · **Workspace:** [single|monorepo|multi-repo] · **Focus:** [fullstack|backend|frontend]
+
+### ⚙️ Backend — `[workspace_paths.backend]/`
+| | |
+|---|---|
+| Tecnología | [technology or —] |
+| Lenguaje | [language or —] |
+| Gestor de paquetes | [package manager or —] |
+| Tests | `[test command]` or — |
+| Dev | `[dev command]` or — |
+| Build | `[build command]` or — |
+
+### 🎨 Frontend — `[workspace_paths.frontend]/`
+| | |
+|---|---|
+| Tecnología | [technology or —] |
+| Lenguaje | [language or —] |
+| Gestor de paquetes | [package manager or —] |
+| Tests | `[test command]` or — |
+| Dev | `[dev command]` or — |
+| Build | `[build command]` or — |
+
+No detectado: Mobile, Base de datos
 ```
-─────────────────────────────────────────
-Agent OS — Project Detection
-─────────────────────────────────────────
-Project name:   [name]
-Project type:   [new|existing|legacy]
-Workspace:      [single|monorepo|multi-repo]
-Focus:          [fullstack|backend|frontend]
-Backend path:   [path or "—" if single]
-Frontend path:  [path or "—" if single]
 
-Frontend:       [detected technology or "not detected"]
-Backend:        [detected technology or "not detected"]
-Mobile:         [detected technology or "not detected"]
-Database:       [detected technology or "not detected"]
-Package mgr:    [detected or "not detected"]
+Shared commands section (`single`, or `monorepo` with root-level commands), placed after the role sections:
 
-Test command:   [command or "not found"]
-Dev command:    [command or "not found"]
-Build command:  [command or "not found"]
-─────────────────────────────────────────
+```markdown
+### 🧰 Comandos del proyecto
+| | |
+|---|---|
+| Tests | `[test command]` or — |
+| Dev | `[dev command]` or — |
+| Build | `[build command]` or — |
+```
+
+Role outside the focus (e.g. `focus = backend`):
+
+```markdown
+### 🎨 Frontend — `[path]/` (fuera de foco)
+Detectado: [technology or —]
 ```
 
 Then use the **AskUserQuestion tool** to collect configuration. For `multi-repo` projects, present **3 questions** (skip question 3 below — the workspace root is not a git repo, so `.agent-os/` cannot be committed from there). For `single` and `monorepo`, present all **4 questions** simultaneously:
@@ -276,22 +310,33 @@ If the user chose NOT to track it:
 
 ## Step 6: Confirm Setup Complete
 
-Output:
+Output formatted Markdown in `output_language`, using the same style as the Step 2 detection (headings + one table per role). **Render this block exactly in this structure. Do NOT summarize it in a prose sentence.** Apply the same rules as Step 2 for paths (`raíz` / root for `single`), roles outside the focus, shared commands, undetected Mobile/Database and `—` for missing values, using the values saved in `config.json`.
 
-```
-─────────────────────────────────────────
-Agent OS — Setup Complete
-─────────────────────────────────────────
-Project:   [name]
-Workspace: [single|monorepo|multi-repo]
-Focus:     [fullstack|backend|frontend]
-Stack:     [frontend] + [backend]
-[Backend path: [path]]   ← only shown if monorepo or multi-repo
-[Frontend path: [path]]  ← only shown if monorepo or multi-repo
+Template (Spanish labels; translate them when `output_language = "en"`):
 
-Next steps:
-  /agent-os:start "describe your first task"   ← Full 5-stage pipeline
-  /agent-os:discover "describe your task"       ← Start with Discovery only
-  /agent-os:status                              ← View current state
-─────────────────────────────────────────
+```markdown
+## ✅ Agent OS — Configuración completa
+
+**Proyecto:** `[name]` · **Workspace:** [single|monorepo|multi-repo] · **Focus:** [fullstack|backend|frontend] · **Idioma:** [en|es]
+
+### ⚙️ Backend — `[workspace_paths.backend]/`
+| | |
+|---|---|
+| Tecnología | [tech_stack.backend or —] |
+| Lenguaje | [tech_stack.language.backend or —] |
+| Tests | `[test command]` or — |
+
+### 🎨 Frontend — `[workspace_paths.frontend]/`
+| | |
+|---|---|
+| Tecnología | [tech_stack.frontend or —] |
+| Lenguaje | [tech_stack.language.frontend or —] |
+| Tests | `[test command]` or — |
+
+### ▶️ Próximos pasos
+| Comando | Para qué |
+|---|---|
+| `/agent-os:start "describe tu primera tarea"` | Pipeline completo de 5 etapas |
+| `/agent-os:discover "describe tu tarea"` | Empezar solo con Discovery |
+| `/agent-os:status` | Ver el estado actual |
 ```

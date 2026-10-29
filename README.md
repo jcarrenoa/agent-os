@@ -215,6 +215,55 @@ In this example:
 - `frontend-developer` gets tech-adaptation + react-conventions
 - `qa-engineer` runs alongside security-scanner; after QA passes, notify-slack asks for approval before running (it is not marked `auto`)
 
+### Recommended extensions
+
+Agent OS does not ship or depend on these tools. They are third-party projects that fit the pipeline well; **review their code before installing them.**
+
+| Tool | What it does | Agents | Requirements |
+|------|--------------|--------|--------------|
+| [CodeGraph](https://github.com/colbymchenry/codegraph) (`colbymchenry/codegraph`, npm `@colbymchenry/codegraph`) | Local graph of symbols, calls and imports (index in `.codegraph/`). Agents query it instead of grepping and reading files one by one. | planner, backend-developer, frontend-developer, qa-engineer | MCP server + CLI, **not a skill**. Subagents reach it through the `codegraph` CLI, so they need `Bash` (see below). `codegraph init` in every repo you want indexed. |
+| [The AntiSlop](https://github.com/aplaceforallmystuff/the-antislop) (`aplaceforallmystuff/the-antislop`, MIT) | Detects and fixes AI-sounding writing patterns. | requirements-analyst, architect | Skill `antislop` installed in `~/.claude/skills/antislop/` (see below). |
+
+> Several unrelated projects are called "codegraph". The one meant here is `colbymchenry/codegraph`.
+
+#### CodeGraph
+
+CodeGraph is not configured through `extensions`: it is not a skill, so listing it under `skills` would only produce a "skill not found" warning. Install and wire it once, then index each repo:
+
+```bash
+npm install -g @colbymchenry/codegraph   # or the installer from its README
+codegraph install                         # wires the MCP server and adds usage instructions to CLAUDE.md
+codegraph init                            # run in each repo to index (creates .codegraph/)
+```
+
+- **How agent-os agents use it**: plugin agents only get the tools in their `tools` frontmatter, so the CodeGraph MCP tool does not reach them. They use the CLI (`codegraph explore "<question>"`) through `Bash`, following the instructions `codegraph install` writes to `CLAUDE.md`. That works today for `planner`, `backend-developer`, `frontend-developer` and `qa-engineer`. `architect` and `requirements-analyst` have no `Bash` and keep reading files as usual.
+- **Monorepo / multi-repo**: run `codegraph init` inside each subrepo (`workspace_paths.backend`, `workspace_paths.frontend`); developers run their commands from their `working_directory`.
+- **When it pays off**: the savings grow with how much code exploration a task needs (large or unfamiliar codebases). On small repos the gain is small, and its answers stay in the agent's context window longer than short file reads.
+
+#### The AntiSlop
+
+agent-os looks up skills in `.claude/skills/`, `~/.claude/skills/` and its own plugin, not in other plugins. Its marketplace install (`/plugin install the-antislop@aplaceforallmystuff`) is therefore not visible to agent-os. Also, the repository keeps the skill in `skills/antislop/`, so cloning the whole repo into `~/.claude/skills/` does not produce a loadable skill. Copy the skill folder instead:
+
+```bash
+git clone https://github.com/aplaceforallmystuff/the-antislop.git /tmp/the-antislop
+cp -r /tmp/the-antislop/skills/antislop ~/.claude/skills/antislop
+```
+
+Then assign it in `~/.agent-os/defaults.json` (all your projects):
+
+```json
+{
+  "agents": {
+    "requirements-analyst": { "skills": ["antislop"] },
+    "architect": { "mode": "extend", "skills": ["antislop"] }
+  }
+}
+```
+
+It is not recommended for the developers: it targets prose, not code.
+
+If a configured skill is not installed, skill-resolution shows `⚠ skill '<name>' not found — skipped` and the agent continues with its defaults. You can also assign skills with `/agent-os:skills` (menu → "Todos mis proyectos").
+
 ---
 
 ## Supported Technology Stacks
