@@ -27,9 +27,11 @@ Set `stages.design.status = "in_progress"` and update state.json.
 Follow the `skill-resolution` skill for stage `design`, agent `architect`, using its **Architect: Multiple Roles** rules: only the roles active in `config.focus` are resolved, each with its own mode, and the Extensions block carries a `### Shared` section plus one `### Role: <role>` section per active role. Never combine the roles into a single mode. Show any warnings to the user.
 
 Spawn an `architect` agent. Pass it:
-- The full task file (requirements + subtasks)
-- The project config
+- The task file path (requirements + subtasks)
+- The project config path
 - The full extension resolution block under the heading `## Extensions`
+
+Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 After the agent completes:
 1. The architect will have created ADR files in `.agent-os/decisions/`.

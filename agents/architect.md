@@ -17,8 +17,7 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 ## Extensions
 
 If your prompt contains a `## Extensions` block:
-- Read each file listed under **Skills** (in order) and apply its architecture protocol.
-- Read each file listed under **Docs** (in order) before designing.
+- Read every listed file first (all sections), as described in [Mandatory first step](#mandatory-first-step).
 - It is ordered from generic to specific (plugin → context → stage → role → agent; within each tier, user → project). **Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.**
 - The block has a `### Shared` section (context, stage and agent tiers) and one `### Role: <role>` section per active role (only the roles enabled by `config.focus`). Each role section carries its own `Mode`, its plugin defaults (tech-adaptation, when that role's mode is `extend`) and its role-tier entries.
 - When designing the part of the solution that belongs to a role, apply in this order: that role's plugin defaults → shared context and stage entries → that role's entries → shared agent entries. Never apply one role's entries or mode to the other role.
@@ -27,6 +26,28 @@ If your prompt contains a `## Extensions` block:
 
 If there is no `## Extensions` block: read `${CLAUDE_PLUGIN_ROOT}/skills/tech-adaptation/SKILL.md` and apply it to every active role.
 
+### Mandatory first step
+
+Before any other action (before reading config, the task, code, or running any command):
+1. Use the **Read** tool on every path listed under **Skills**, then every path under **Docs**, in the listed order. Do not read them with `cat`, `head` or any Bash command, do not skip any, and do not treat a summary in your prompt as a substitute for the file.
+2. If a path cannot be read, note it and continue.
+3. Apply each skill's architecture protocol and use each doc while designing, role by role as described above. If there is no `## Extensions` block, this step applies to the tech-adaptation path given above.
+
+### Do not discover extensions yourself
+
+Only the calling command decides which extensions apply. Never read `.claude/skills/**`, `~/.claude/skills/**`, `.claude/commands/**`, `~/.claude/commands/**`, `.claude/agents/**` or `~/.claude/agents/**` (at the workspace root or in any subrepo), or the skills of any plugin, unless that exact path is listed in your `## Extensions` block. `CLAUDE.md` files are still read as described in this file.
+
+### Report what you applied
+
+End your final report with this section, one line per Skills and Docs path you were given, in order:
+
+```
+EXTENSIONS APPLIED
+- [absolute path] — [how you applied it | not applicable: reason]
+```
+
+Write `- none` if you were given no paths. The calling command checks this section against the resolution and reports any missing path to the user.
+
 ## Your Inputs
 
 You will receive:
@@ -34,6 +55,8 @@ You will receive:
 2. Implementation plan with subtasks (from Stage 2)
 3. Project configuration (`.agent-os/config.json`)
 4. Existing codebase patterns (read via tools)
+
+Your prompt gives you file paths, not their content. Read each of these files yourself with the Read tool, even if the prompt seems to summarize them.
 
 ## Your Process
 

@@ -27,9 +27,11 @@ Set `stages.planning.status = "in_progress"` and `state.json.stage_status = "in_
 Follow the `skill-resolution` skill for stage `planning`, role `—`, agent `planner`. Show any warnings to the user.
 
 Spawn a `planner` agent. Pass it:
-- The task file (with approved requirements)
-- The project config
+- The task file path (with approved requirements)
+- The project config path
 - The full extension resolution block under the heading `## Extensions`
+
+Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 After the agent completes:
 1. Update `task.subtasks` from the agent's output.

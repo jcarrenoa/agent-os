@@ -17,9 +17,18 @@ Implement all approved subtasks in the correct order, following the approved arc
 - [ ] The project's test suite passes (or failures are explicitly flagged).
 - [ ] No blocking issues remain.
 
+## Execution Rule
+
+**One agent per role, running its subtasks in dependency order.** The development stage does not spawn one agent per subtask.
+
+1. Group the subtasks (after focus filtering) by role: `backend-developer` and `frontend-developer`. Inside each group, order them by `task.subtasks[].depends_on`.
+2. If no subtask of one role depends on a subtask of the other role, spawn both role agents in parallel, each with all of its subtasks.
+3. If there are cross-role dependencies, split each role's list into consecutive batches at every cross-role dependency. Run the batches in dependency order, one agent run per batch; batches of different roles run in parallel when neither waits for the other.
+4. State is still tracked **per subtask**: the agent reports each subtask as complete or blocked, and the calling command updates each subtask's status in the task file. An agent that hits a blocked subtask stops and does not start the rest of its run.
+
 ## Execution Order
 
-Follow the dependency order defined in the plan (`task.subtasks[].depends_on`).
+Within each role, follow the dependency order defined in the plan (`task.subtasks[].depends_on`).
 
 For subtasks with no dependencies between them, run in this preferred order:
 1. Backend subtasks first (frontend depends on APIs)
@@ -30,25 +39,25 @@ Exception: If the task has no backend (frontend-only), run frontend subtasks in 
 
 ## Context Passed to Each Agent
 
+Never paste into the prompt the design, ADR content, requirements or rules from any `CLAUDE.md`. Never read test plans, checklists or expected-results files from the workspace to pass hints to agents. After each run, the calling command verifies the agent's `EXTENSIONS APPLIED` section (Step 6 of the `skill-resolution` skill).
+
 Before spawning each developer agent, the calling command follows the `skill-resolution` skill for stage `development` with the agent's role (`backend` or `frontend`). If a scaffold skill is configured and `project_type = "new"`, it is run before the first subtask for that role.
 
-Each developer agent receives:
-1. Their specific subtask object from `task.subtasks`.
-2. The full task file path (to read requirements and architecture).
+Each developer agent run receives references, not content (Step 5 of the `skill-resolution` skill). The agent reads every file itself:
+1. The IDs and titles of the subtasks in this run, in execution order (the details stay in the task file).
+2. The task file path (to read requirements and architecture).
 3. The config file path (for tech stack).
-4. The list of ADR IDs from `task.decisions` (to read architecture decisions).
-5. Implementation order guidance from Stage 3.
-6. The extension resolution block for their role under `## Extensions` (includes resolved absolute skill and doc paths, and mode).
-7. In `monorepo` / `multi-repo`: `working_directory` for their role. The agent prefixes only project code paths with it; `.agent-os/` and the Extensions paths are used as-is from the workspace root.
+4. The paths of the ADR files from `task.decisions`.
+5. The extension resolution block for their role under `## Extensions` (includes resolved absolute skill and doc paths, and mode).
+6. In `monorepo` / `multi-repo`: `working_directory` for their role. The agent prefixes only project code paths with it; `.agent-os/` and the Extensions paths are used as-is from the workspace root.
 
 ## Parallel Execution
 
-Two subtasks may be run in parallel when:
-- One is assigned to `backend-developer` and the other to `frontend-developer`.
-- Neither depends on the other.
-- The frontend subtask does not call backend APIs that don't exist yet.
+The two role agents (or batches) may run in parallel when:
+- Neither has a subtask that depends on a subtask of the other.
+- No frontend subtask calls backend APIs that don't exist yet.
 
-When in doubt: run sequentially.
+When in doubt: run the backend agent first, then the frontend agent.
 
 ## Blocker Protocol
 

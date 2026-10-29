@@ -26,9 +26,11 @@ Set `stages.qa.status = "in_progress"` and update state.json.
 Follow the `skill-resolution` skill for stage `qa`, agent `qa-engineer`. Show any warnings to the user.
 
 Spawn a `qa-engineer` agent with:
-- The full task file
-- The project config
+- The task file path
+- The project config path
 - The full extension resolution block under the heading `## Extensions`
+
+Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 **Parallel agents**: If the resolution result lists Agents, spawn them simultaneously alongside `qa-engineer`. Collect all their reports and merge findings into a single QA report (union of all issues, most-severe first).
 

@@ -17,12 +17,33 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 ## Extensions
 
 If your prompt contains a `## Extensions` block:
-- Read each file listed under **Skills** (in order) and apply its protocol.
-- Read each file listed under **Docs** (in order) before analyzing the requirements.
+- Read every listed file first, as described in [Mandatory first step](#mandatory-first-step).
 - It is ordered from generic to specific (plugin → context → stage → role → agent; within each tier, user → project). **Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.**
 - Each entry is tagged with its tier (`context`, `stage`, `agent`) and level (`user`, `project`). Entries tagged `agent` are specific to you; those tagged `stage` apply to all agents in this stage.
 - `Mode` only decides whether plugin defaults are included; the calling command has already applied it. This agent has no plugin defaults, so `Mode` does not change what you read.
 - All paths in the block are absolute: use them as-is.
+
+### Mandatory first step
+
+Before any other action (before reading config, the task, code, or running any command):
+1. Use the **Read** tool on every path listed under **Skills**, then every path under **Docs**, in the listed order. Do not read them with `cat`, `head` or any Bash command, do not skip any, and do not treat a summary in your prompt as a substitute for the file.
+2. If a path cannot be read, note it and continue.
+3. Apply each skill's protocol and use each doc while planning.
+
+### Do not discover extensions yourself
+
+Only the calling command decides which extensions apply. Never read `.claude/skills/**`, `~/.claude/skills/**`, `.claude/commands/**`, `~/.claude/commands/**`, `.claude/agents/**` or `~/.claude/agents/**` (at the workspace root or in any subrepo), or the skills of any plugin, unless that exact path is listed in your `## Extensions` block. `CLAUDE.md` files are still read as described in this file.
+
+### Report what you applied
+
+End your final report with this section, one line per Skills and Docs path you were given, in order:
+
+```
+EXTENSIONS APPLIED
+- [absolute path] — [how you applied it | not applicable: reason]
+```
+
+Write `- none` if you were given no paths. The calling command checks this section against the resolution and reports any missing path to the user.
 
 ## Your Inputs
 
@@ -30,6 +51,8 @@ You will receive:
 1. The approved requirements from Stage 1 (task file: `.agent-os/tasks/TASK-NNN.json`)
 2. The project configuration (`.agent-os/config.json`)
 3. Relevant codebase sections to understand existing patterns
+
+Your prompt gives you file paths, not their content. Read each of these files yourself with the Read tool, even if the prompt seems to summarize them.
 
 ## Your Process
 

@@ -49,10 +49,12 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/01-discovery.md` and follow it completely.
 Follow the `skill-resolution` skill for stage `discovery`, agent `requirements-analyst`. Show any warnings.
 
 Spawn a `requirements-analyst` agent with:
-- The task description
+- The task description (verbatim)
 - The path to `config.json`
 - The path to the new task file
 - The extension resolution block under the heading `## Extensions`
+
+Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 After the agent returns, record its output in the task file:
 - `stages.discovery.status = "in_progress"` → update to `"awaiting_approval"` after agent completes
@@ -87,9 +89,11 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/02-planning.md` and follow it completely. 
 Follow the `skill-resolution` skill for stage `planning`, agent `planner`. Show any warnings.
 
 Spawn a `planner` agent with:
-- The approved task file (with requirements)
-- The project config
+- The approved task file path (with requirements)
+- The project config path
 - The extension resolution block under the heading `## Extensions`
+
+Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 After the agent returns:
 - `stages.planning.status = "done"`
@@ -108,9 +112,11 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/03-design-architecture.md` and follow it c
 Follow the `skill-resolution` skill for stage `design`, agent `architect`, using its **Architect: Multiple Roles** rules: only the roles active in `config.focus` are resolved, each with its own mode, and the Extensions block carries a `### Shared` section plus one `### Role: <role>` section per active role. Never combine the roles into a single mode. Show any warnings.
 
 Spawn an `architect` agent with:
-- The task file (requirements + subtasks)
-- The project config
+- The task file path (requirements + subtasks)
+- The project config path
 - The extension resolution block under the heading `## Extensions`
+
+Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 After the agent returns:
 - `stages.design.status = "awaiting_approval"`
@@ -153,16 +159,15 @@ Read `config.focus` and `config.workspace_type`:
 
 For `monorepo` or `multi-repo`: pass `working_directory: [config.workspace_paths.backend]` to backend agents and `working_directory: [config.workspace_paths.frontend]` to frontend agents.
 
-For each subtask in the plan (applying focus filtering above):
-1. Identify the assigned agent role (`backend-developer` or `frontend-developer`).
-2. Spawn the appropriate agent with:
-   - The subtask details, task file, and project config
-   - The extension resolution block for that role under the heading `## Extensions`
-   - `working_directory: [path]` if workspace_type is `monorepo` or `multi-repo`
-3. Wait for the agent to complete.
-4. Record the result (files modified, completion status) in the task file.
+Run **one agent per role** with all of that role's subtasks (applying focus filtering above), in dependency order, following the Execution Rule in the development workflow: roles run in parallel when neither depends on the other; cross-role dependencies split a role's list into consecutive batches.
 
-Respect dependency order from the plan — do not run a subtask before its dependencies are done.
+Each agent run receives, per Step 5 of the `skill-resolution` skill (references only, never pasted content):
+- The subtask IDs of that run, in order, each with its title
+- The task file path, the project config path, and the paths of the relevant ADR files
+- The extension resolution block for that role under the heading `## Extensions`
+- `working_directory: [path]` if workspace_type is `monorepo` or `multi-repo`
+
+After each run, record the result **per subtask** (status, files modified) in the task file and verify the `EXTENSIONS APPLIED` section (Step 6 of the `skill-resolution` skill).
 
 After all subtasks are complete:
 - `stages.development.status = "done"`
@@ -181,8 +186,10 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/05-testing-qa.md` and follow it completely
 Follow the `skill-resolution` skill for stage `qa`, agent `qa-engineer`. Show any warnings.
 
 Spawn a `qa-engineer` agent (and any extra Agents from the resolution result in parallel) with:
-- The full task file and project config
+- The task file path and project config path
 - The extension resolution block under the heading `## Extensions`
+
+Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 After the agent returns:
 - If recommendation is `APPROVE`:

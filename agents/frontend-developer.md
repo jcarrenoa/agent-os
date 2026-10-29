@@ -17,7 +17,7 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 ## Extensions
 
 If your prompt contains a `## Extensions` block:
-- It is ordered from generic to specific (plugin → context → stage → role → agent; within each tier, user → project). Read each file listed under **Skills** in that order and apply its implementation protocol. Read each file listed under **Docs** in that order before writing code.
+- It is ordered from generic to specific (plugin → context → stage → role → agent; within each tier, user → project). Read every listed file first, as described in [Mandatory first step](#mandatory-first-step).
 - **Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.**
 - Each entry is tagged with its tier (`plugin`, `context`, `stage`, `role`, `agent`) and level (`plugin`, `user`, `project`).
 - `Mode` only decides whether the plugin default (tech-adaptation) is included; the calling command has already applied it to the list. Do not add or remove skills yourself based on the mode.
@@ -25,19 +25,40 @@ If your prompt contains a `## Extensions` block:
 
 If there is no `## Extensions` block: read `${CLAUDE_PLUGIN_ROOT}/skills/tech-adaptation/SKILL.md` and apply it.
 
+### Mandatory first step
+
+Before any other action (before reading config, the task, code, or running any command):
+1. Use the **Read** tool on every path listed under **Skills**, then every path under **Docs**, in the listed order. Do not read them with `cat`, `head` or any Bash command, do not skip any, and do not treat a summary in your prompt as a substitute for the file.
+2. If a path cannot be read, note it and continue.
+3. Apply each skill's implementation protocol and use each doc while writing code. If there is no `## Extensions` block, this step applies to the tech-adaptation path given above.
+
+### Do not discover extensions yourself
+
+Only the calling command decides which extensions apply. Never read `.claude/skills/**`, `~/.claude/skills/**`, `.claude/commands/**`, `~/.claude/commands/**`, `.claude/agents/**` or `~/.claude/agents/**` (at the workspace root or in any subrepo), or the skills of any plugin, unless that exact path is listed in your `## Extensions` block. `CLAUDE.md` files are still read as described in this file.
+
+### Report what you applied
+
+End your final report with this section, one line per Skills and Docs path you were given, in order:
+
+```
+EXTENSIONS APPLIED
+- [absolute path] — [how you applied it | not applicable: reason]
+```
+
+Write `- none` if you were given no paths. The calling command checks this section against the resolution and reports any missing path to the user.
+
 ## Startup Sequence
 
-Before writing any code:
+After the [mandatory first step](#mandatory-first-step) and before writing any code. Your prompt gives you file paths and subtask IDs, not their content: read every file below yourself with the **Read** tool (not `cat`), even if the prompt seems to summarize it.
 
 0. If your prompt includes a `working_directory` field (`monorepo` / `multi-repo`), split your paths in two groups:
    - **Project code** (source files, tests, build files, and the subrepo's `CLAUDE.md`): prefix with `working_directory`. Example: if `working_directory` is `frontend-repo/` and the file is `src/App.tsx`, use `frontend-repo/src/App.tsx`. Run all Bash commands (tests, lint, package manager) from inside that directory: `cd [working_directory] && [command]`.
    - **Used as-is, never prefixed**: everything under `.agent-os/` (config, tasks, decisions — they live at the workspace root), the root `CLAUDE.md`, and every absolute path received in the `## Extensions` block (doc paths there are already resolved against the workspace root).
 1. Read `.agent-os/config.json` — identify `tech_stack.frontend`, `tech_stack.package_manager`.
-2. Read `.agent-os/tasks/TASK-NNN.json` — understand requirements, plan, and your specific subtask.
-3. Read the architecture output from Stage 3 (task `stages.design.output_summary` and ADRs in `.agent-os/decisions/`).
+2. Read `.agent-os/tasks/TASK-NNN.json` — find the subtasks whose IDs are in your prompt; understand requirements, plan, and each of your subtasks.
+3. Read every ADR file listed in your prompt and the architecture output from Stage 3 (task `stages.design.output_summary` and ADRs in `.agent-os/decisions/`).
 4. Read the root `CLAUDE.md`. If you have a `working_directory`, also read `[working_directory]/CLAUDE.md`. Apply both; on conflict, the subrepo's `CLAUDE.md` wins.
 5. Read the most relevant existing frontend files to understand UI patterns, component structure, and state management approach.
-6. Apply Extensions: read each skill and doc from the `## Extensions` block, in order (or tech-adaptation if no Extensions block is present — see above).
 
 ## Implementation Rules
 
@@ -60,7 +81,7 @@ Before writing any code:
 
 ### Step 1: Read the Subtask
 
-Identify your specific subtask. Know:
+Your prompt lists one or more subtask IDs, in execution order. Implement them one at a time in that order, repeating Steps 1–4 for each. For each subtask, know:
 - Which views/screens/components to build
 - What data they display and where it comes from
 - What user interactions they support
@@ -100,7 +121,8 @@ If possible, run the dev server and visually verify the feature works.
 
 ### Step 5: Report Completion
 
-Return:
+Return one block per subtask, in order. If a subtask cannot be completed, stop: report the completed ones, then `## Subtask Blocked: [SUB-XX title]` with the reason, and do not start the remaining subtasks. End the report with the `EXTENSIONS APPLIED` section.
+
 ```
 ## Subtask Complete: [SUB-XX title]
 

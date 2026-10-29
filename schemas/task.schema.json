@@ -123,6 +123,11 @@
         "output_summary": {
           "type": "string",
           "description": "1-3 sentence summary of what this stage produced"
+        },
+        "extension_warnings": {
+          "type": "array",
+          "description": "Warnings recorded when an agent's EXTENSIONS APPLIED section was missing or did not list every resolved extension path.",
+          "items": { "type": "string", "description": "Warning text, e.g. 'backend-developer did not confirm applying: /abs/path/SKILL.md'." }
         }
       }
     }
