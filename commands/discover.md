@@ -23,7 +23,7 @@ If creating a new task: create `TASK-NNN.json` and update `state.json`.
 
 ## Run Stage 1
 
-Read `workflows/01-discovery.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/01-discovery.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Set `stages.discovery.status = "in_progress"` in the task file before spawning the agent.
 Set `state.json.stage_status = "in_progress"`.

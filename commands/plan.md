@@ -18,7 +18,7 @@ You are running Stage 2 (Analysis & Planning) of the agent-os pipeline.
 
 ## Run Stage 2
 
-Read `workflows/02-planning.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/02-planning.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Set `stages.planning.status = "in_progress"` and `state.json.stage_status = "in_progress"`.
 

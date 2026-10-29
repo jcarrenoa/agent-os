@@ -1,136 +1,136 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Agent OS User Defaults",
-  "description": "User-level extension defaults stored at ~/.agent-os/defaults.json. Applied to every project where agent-os is configured. Project-level config.json extensions take precedence over these defaults.",
+  "title": "Agent OS Extensions",
+  "description": "Extension configuration shape. Used as the whole of ~/.agent-os/defaults.json (user level) and as the `extensions` field of .agent-os/config.json (project level, which references this schema). Within each tier, project entries are applied after user entries, so they win on conflict.",
   "type": "object",
   "additionalProperties": false,
   "definitions": {
+    "mode": {
+      "type": "string",
+      "enum": ["extend", "replace"],
+      "default": "extend",
+      "description": "Controls only the plugin defaults (tech-adaptation for architect, backend-developer and frontend-developer). extend = add the plugin defaults. replace = do not add them. Context, stage, role and agent entries are always kept in both modes."
+    },
+    "skillList": {
+      "type": "array",
+      "description": "Skill names to inject. Each name is looked up in the project .claude/skills/ (the role's subrepo first in monorepo/multi-repo), then ~/.claude/skills/, then the plugin.",
+      "items": {
+        "type": "string",
+        "description": "Skill name (e.g. 'my-team-guide') or prefixed plugin skill (e.g. 'agent-os:tech-adaptation')."
+      }
+    },
+    "docList": {
+      "type": "array",
+      "description": "Doc files the agent reads before starting.",
+      "items": {
+        "type": "string",
+        "description": "Absolute path, ~/path, or path relative to the workspace root."
+      }
+    },
+    "agentList": {
+      "type": "array",
+      "description": "Extra agent names to run in parallel with the qa-engineer. Their findings are merged into the QA report.",
+      "items": {
+        "type": "string",
+        "description": "Agent name as it appears in .claude/agents/ or ~/.claude/agents/."
+      }
+    },
+    "commandEntry": {
+      "description": "A post-QA command. A plain name always requires an approval gate. Use the object form with auto = true only for commands that are safe to run without approval.",
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Command name as it appears in .claude/commands/ or ~/.claude/commands/. Always gated."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "description": "Command with an explicit execution policy.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Command name as it appears in .claude/commands/ or ~/.claude/commands/."
+            },
+            "auto": {
+              "type": "boolean",
+              "default": false,
+              "description": "true = run after QA without an approval gate. false (default) = present an approval gate first."
+            }
+          }
+        }
+      ]
+    },
+    "commandList": {
+      "type": "array",
+      "description": "Commands to run after QA passes. Every command requires an approval gate unless configured with auto = true.",
+      "items": { "$ref": "#/definitions/commandEntry" }
+    },
+    "scaffoldIfNew": {
+      "type": "string",
+      "description": "Skill name to run as a project scaffold before the first subtask. Applied only when config.project_type is 'new'."
+    },
+    "stageExtension": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Skills and docs for every agent in a stage without per-role config (discovery, planning).",
+      "properties": {
+        "skills": { "$ref": "#/definitions/skillList" },
+        "docs": { "$ref": "#/definitions/docList" }
+      }
+    },
     "roleExtension": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Per-role skill and doc overrides for a pipeline stage.",
+      "description": "Per-role skills and docs for the design stage.",
       "properties": {
-        "mode": {
-          "type": "string",
-          "enum": ["extend", "replace"],
-          "default": "extend",
-          "description": "extend = apply tech-adaptation first, then add these. replace = skip tech-adaptation for this role and use only what is listed here."
-        },
-        "skills": {
-          "type": "array",
-          "description": "Skill names to inject for this role. Resolved in order: project .claude/skills/, user ~/.claude/skills/, plugin.",
-          "items": {
-            "type": "string",
-            "description": "Skill name (e.g. 'my-team-guide') or prefixed plugin skill (e.g. 'agent-os:tech-adaptation')."
-          }
-        },
-        "docs": {
-          "type": "array",
-          "description": "Doc file paths the agent reads before starting. Absolute, ~/path, or relative to project root.",
-          "items": {
-            "type": "string",
-            "description": "File path."
-          }
-        }
+        "mode": { "$ref": "#/definitions/mode" },
+        "skills": { "$ref": "#/definitions/skillList" },
+        "docs": { "$ref": "#/definitions/docList" }
       }
     },
     "developmentRoleExtension": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Per-role extension for Stage 4 (Development).",
+      "description": "Per-role skills and docs for Stage 4 (Development), plus an optional scaffold skill.",
       "properties": {
-        "mode": {
-          "type": "string",
-          "enum": ["extend", "replace"],
-          "default": "extend",
-          "description": "extend = apply tech-adaptation first, then add these. replace = skip tech-adaptation for this role."
-        },
-        "skills": {
-          "type": "array",
-          "description": "Skill names to inject for this developer role.",
-          "items": { "type": "string", "description": "Skill name or prefixed plugin skill." }
-        },
-        "docs": {
-          "type": "array",
-          "description": "Doc file paths the developer reads before starting.",
-          "items": { "type": "string", "description": "File path." }
-        },
-        "scaffold_if_new": {
-          "type": "string",
-          "description": "Skill name to run as a project scaffold before the first subtask. Applied only when config.project_type is 'new'."
-        }
+        "mode": { "$ref": "#/definitions/mode" },
+        "skills": { "$ref": "#/definitions/skillList" },
+        "docs": { "$ref": "#/definitions/docList" },
+        "scaffold_if_new": { "$ref": "#/definitions/scaffoldIfNew" }
       }
     },
     "agentExtension": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Per-agent skill and doc overrides. Applied on top of any stage or role config. Agent mode wins over role and stage mode.",
+      "description": "Per-agent skills and docs, applied after stage and role entries. Agent mode wins over role mode.",
       "properties": {
-        "mode": {
-          "type": "string",
-          "enum": ["extend", "replace"],
-          "default": "extend",
-          "description": "extend = keep stage/role config and add these. replace = use only what is listed here, skipping tech-adaptation."
-        },
-        "skills": {
-          "type": "array",
-          "description": "Skill names to inject for this specific agent. Added on top of stage and role skills.",
-          "items": { "type": "string", "description": "Skill name or prefixed plugin skill." }
-        },
-        "docs": {
-          "type": "array",
-          "description": "Doc file paths this agent reads. Added on top of stage and role docs.",
-          "items": { "type": "string", "description": "Absolute path, ~/path, or relative to project root." }
-        }
+        "mode": { "$ref": "#/definitions/mode" },
+        "skills": { "$ref": "#/definitions/skillList" },
+        "docs": { "$ref": "#/definitions/docList" }
       }
     },
     "qaAgentExtension": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Per-agent overrides for the qa-engineer. Includes extra agents and post-QA commands.",
+      "description": "Per-agent config for the qa-engineer: skills, docs, extra agents and post-QA commands.",
       "properties": {
-        "mode": {
-          "type": "string",
-          "enum": ["extend", "replace"],
-          "default": "extend",
-          "description": "extend = apply defaults then add these. replace = use only what is listed here."
-        },
-        "skills": {
-          "type": "array",
-          "description": "Skill names to inject for the qa-engineer.",
-          "items": { "type": "string", "description": "Skill name or prefixed plugin skill." }
-        },
-        "docs": {
-          "type": "array",
-          "description": "Doc file paths the qa-engineer reads.",
-          "items": { "type": "string", "description": "File path." }
-        },
-        "agents": {
-          "type": "array",
-          "description": "Extra agent names to run in parallel with qa-engineer.",
-          "items": { "type": "string", "description": "Agent name." }
-        },
-        "commands": {
-          "type": "array",
-          "description": "Commands to run after QA passes. External-effect commands require an approval gate.",
-          "items": { "type": "string", "description": "Command name." }
-        }
+        "mode": { "$ref": "#/definitions/mode" },
+        "skills": { "$ref": "#/definitions/skillList" },
+        "docs": { "$ref": "#/definitions/docList" },
+        "agents": { "$ref": "#/definitions/agentList" },
+        "commands": { "$ref": "#/definitions/commandList" }
       }
     }
   },
   "properties": {
     "context": {
-      "type": "array",
-      "description": "Doc paths loaded by every agent in the pipeline, regardless of stage. Applied before any stage-specific docs.",
-      "items": {
-        "type": "string",
-        "description": "Absolute path, ~/path, or path relative to project root."
-      }
+      "$ref": "#/definitions/docList"
     },
     "agents": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Per-agent skill and doc overrides. Merged on top of stage and role config; agent mode wins. Keys must be plugin agent names.",
+      "description": "Per-agent skill and doc overrides, applied after stage and role entries; agent mode wins. Keys must be plugin agent names.",
       "propertyNames": {
         "enum": ["requirements-analyst", "planner", "architect", "backend-developer", "frontend-developer", "qa-engineer"]
       },
@@ -148,81 +148,17 @@
       "additionalProperties": false,
       "description": "Per-stage extension configuration.",
       "properties": {
-        "discovery": {
-          "type": "object",
-          "additionalProperties": false,
-          "description": "Extensions for Stage 1: Discovery & Requirements.",
-          "properties": {
-            "docs": {
-              "type": "array",
-              "description": "Docs the requirements-analyst reads before capturing requirements.",
-              "items": {
-                "type": "string",
-                "description": "File path."
-              }
-            },
-            "skills": {
-              "type": "array",
-              "description": "Additional skills the requirements-analyst applies.",
-              "items": {
-                "type": "string",
-                "description": "Skill name or prefixed plugin skill."
-              }
-            }
-          }
-        },
-        "planning": {
-          "type": "object",
-          "additionalProperties": false,
-          "description": "Extensions for Stage 2: Analysis & Planning.",
-          "properties": {
-            "docs": {
-              "type": "array",
-              "description": "Docs the planner reads before creating the implementation plan.",
-              "items": {
-                "type": "string",
-                "description": "File path."
-              }
-            },
-            "skills": {
-              "type": "array",
-              "description": "Additional skills the planner applies.",
-              "items": {
-                "type": "string",
-                "description": "Skill name or prefixed plugin skill."
-              }
-            }
-          }
-        },
+        "discovery": { "$ref": "#/definitions/stageExtension" },
+        "planning": { "$ref": "#/definitions/stageExtension" },
         "design": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Extensions for Stage 3: Design & Architecture.",
+          "description": "Extensions for Stage 3: Design & Architecture. Role sections are resolved separately for each role active in config.focus.",
           "properties": {
-            "docs": {
-              "type": "array",
-              "description": "Docs the architect reads before designing.",
-              "items": {
-                "type": "string",
-                "description": "File path."
-              }
-            },
-            "skills": {
-              "type": "array",
-              "description": "Additional skills the architect applies.",
-              "items": {
-                "type": "string",
-                "description": "Skill name or prefixed plugin skill."
-              }
-            },
-            "backend": {
-              "$ref": "#/definitions/roleExtension",
-              "description": "Backend-specific overrides for the design stage."
-            },
-            "frontend": {
-              "$ref": "#/definitions/roleExtension",
-              "description": "Frontend-specific overrides for the design stage."
-            }
+            "skills": { "$ref": "#/definitions/skillList" },
+            "docs": { "$ref": "#/definitions/docList" },
+            "backend": { "$ref": "#/definitions/roleExtension" },
+            "frontend": { "$ref": "#/definitions/roleExtension" }
           }
         },
         "development": {
@@ -230,14 +166,8 @@
           "additionalProperties": false,
           "description": "Extensions for Stage 4: Development. Configured per role only.",
           "properties": {
-            "backend": {
-              "$ref": "#/definitions/developmentRoleExtension",
-              "description": "Extensions for the backend-developer role."
-            },
-            "frontend": {
-              "$ref": "#/definitions/developmentRoleExtension",
-              "description": "Extensions for the frontend-developer role."
-            }
+            "backend": { "$ref": "#/definitions/developmentRoleExtension" },
+            "frontend": { "$ref": "#/definitions/developmentRoleExtension" }
           }
         },
         "qa": {
@@ -245,38 +175,10 @@
           "additionalProperties": false,
           "description": "Extensions for Stage 5: Testing & QA.",
           "properties": {
-            "docs": {
-              "type": "array",
-              "description": "Docs the QA engineer reads before verifying.",
-              "items": {
-                "type": "string",
-                "description": "File path."
-              }
-            },
-            "skills": {
-              "type": "array",
-              "description": "Additional skills the QA engineer applies.",
-              "items": {
-                "type": "string",
-                "description": "Skill name or prefixed plugin skill."
-              }
-            },
-            "agents": {
-              "type": "array",
-              "description": "Additional agent names to run in parallel with the qa-engineer. Their findings are merged into the QA report.",
-              "items": {
-                "type": "string",
-                "description": "Agent name as it appears in .claude/agents/ or ~/.claude/agents/."
-              }
-            },
-            "commands": {
-              "type": "array",
-              "description": "Commands to run after QA. Commands with external effects (push, deploy) require an approval gate before execution.",
-              "items": {
-                "type": "string",
-                "description": "Command name as it appears in .claude/commands/ or ~/.claude/commands/."
-              }
-            }
+            "skills": { "$ref": "#/definitions/skillList" },
+            "docs": { "$ref": "#/definitions/docList" },
+            "agents": { "$ref": "#/definitions/agentList" },
+            "commands": { "$ref": "#/definitions/commandList" }
           }
         }
       }

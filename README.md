@@ -71,7 +71,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:skills list` | List all configured extensions and whether each file exists on disk. |
 | `/agent-os:skills add <stage> <name\|path>` | Add a skill, doc, agent, or command to a stage. |
 | `/agent-os:skills remove <stage> <name\|path>` | Remove an extension from a stage. |
-| `/agent-os:skills mode <stage>.<role> extend\|replace` | Set the tech-adaptation mode for a role. |
+| `/agent-os:skills mode <stage>.<role> extend\|replace` | Set whether the plugin default (tech-adaptation) is added for a role. |
 
 ---
 
@@ -105,33 +105,55 @@ Agent OS can use skills, docs, agents, and commands that you already have instal
 - `requirements-analyst`, `planner`, `architect`
 - `backend-developer`, `frontend-developer`, `qa-engineer`
 
-Agent-level config is merged on top of stage/role config. If both define `mode`, the agent-level value wins.
+Agent-level config is applied after stage/role config. If both define `mode`, the agent-level value wins.
 
 ### Combination Order
 
-For each agent spawn, the pipeline resolves extensions in four tiers (least → most specific):
+For each agent spawn, the pipeline resolves extensions in five tiers and hands them to the agent in this order (generic → specific):
 
 ```
-context (global docs)
-  └── stages.<stage>         (all agents in the stage)
-        └── stages.<stage>.<role>  (backend or frontend agents only)
-              └── agents.<agent>   (this specific agent only)
+plugin defaults (tech-adaptation, unless mode = replace)
+  └── context                 (global docs)
+        └── stages.<stage>         (all agents in the stage)
+              └── stages.<stage>.<role>  (backend or frontend agents only)
+                    └── agents.<agent>   (this specific agent only)
 ```
 
-Within each tier: project-level entries take priority over user-level, and more specific tiers take priority for mode. Lists are unioned without duplicates.
+Within each tier, user-level entries come first and project-level entries after them. If a name appears twice, only its most specific occurrence is kept. Every agent's `## Extensions` block states the precedence rule explicitly: **later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.**
+
+The architect works for every role, so it gets a shared section plus one section per role active in `focus` (each with its own mode) instead of a merged list.
 
 ### Three Configuration Levels
 
 | Level | Source | Priority |
 |-------|--------|----------|
-| Project | `.agent-os/config.json` → `extensions` | Highest |
+| Project | `.agent-os/config.json` → `extensions` | Highest (applied last within each tier) |
 | User | `~/.agent-os/defaults.json` | Middle |
-| Plugin | Built-in tech-adaptation skill | Lowest |
+| Plugin | Built-in tech-adaptation skill | Lowest (applied first) |
+
+Plugin files (workflows, schemas, built-in skills) are always addressed through `${CLAUDE_PLUGIN_ROOT}`, which Claude Code substitutes with the installed plugin's absolute path, so they are found whether the plugin comes from a marketplace, the cache, or `--plugin-dir`.
+
+### Monorepo and multi-repo
+
+- Project-level skills, agents, and commands are looked up first in the role's subrepo (`<workspace_paths.backend|frontend>/.claude/`) and then in the workspace root `.claude/`.
+- Developers read `.agent-os/` and the root `CLAUDE.md` from the workspace root, write code inside their subrepo, and also read the subrepo's `CLAUDE.md` (which wins over the root one on conflict).
 
 ### Mode: extend vs replace
 
-- **`extend`** (default): built-in `tech-adaptation` is applied first, then your skills are added.
-- **`replace`**: `tech-adaptation` is skipped. Only your skills are used. Applies to architect, backend-developer, frontend-developer, and their stage/role equivalents.
+`mode` controls only the plugin defaults:
+
+- **`extend`** (default): built-in `tech-adaptation` is added first, then your context, stage, role, and agent entries.
+- **`replace`**: `tech-adaptation` is not added. Your context, stage, role, and agent entries are still applied — `replace` never removes them. Applies to architect, backend-developer, frontend-developer, and their stage/role equivalents.
+
+### Post-QA commands and approval
+
+Every post-QA command asks for approval before it runs — whatever its description says, and even if it has no frontmatter. To let a command run without approval you must mark it explicitly:
+
+```json
+"commands": ["review-pull-request", { "name": "update-changelog", "auto": true }]
+```
+
+Here `review-pull-request` is gated and `update-changelog` runs automatically. From the CLI: `/agent-os:skills add qa update-changelog --auto`.
 
 ### Three Ways to Configure
 
@@ -155,6 +177,9 @@ Guides you through selecting a destination, choosing elements, setting mode, and
 
 # Write to user defaults instead of project config
 /agent-os:skills add --agent planner my-planning-guide --global
+
+# Post-QA command that runs without approval (all others are gated)
+/agent-os:skills add qa update-changelog --auto
 
 # View what a specific agent or stage would load
 /agent-os:skills list --agent backend-developer
@@ -185,10 +210,10 @@ Guides you through selecting a destination, choosing elements, setting mode, and
 ```
 
 In this example:
-- `architect` gets tech-adaptation + my-arch-patterns
-- `backend-developer` gets only my-fastapi-guide (no tech-adaptation)
+- `architect` gets tech-adaptation + my-arch-patterns (per active role)
+- `backend-developer` gets my-fastapi-guide and ~/api-spec.md plus the context doc, without tech-adaptation (`replace` only drops the plugin default)
 - `frontend-developer` gets tech-adaptation + react-conventions
-- `qa-engineer` runs alongside security-scanner; after approval, notify-slack is called (with an approval gate, since it has external effects)
+- `qa-engineer` runs alongside security-scanner; after QA passes, notify-slack asks for approval before running (it is not marked `auto`)
 
 ---
 

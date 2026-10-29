@@ -44,7 +44,7 @@ Tell the user: "Created TASK-NNN: [title]. Starting Stage 1: Discovery."
 
 ## Stage 1: Discovery
 
-Read `workflows/01-discovery.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/01-discovery.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Follow the `skill-resolution` skill for stage `discovery`, agent `requirements-analyst`. Show any warnings.
 
@@ -82,7 +82,7 @@ Reply "approve" to continue to Planning, or describe any changes needed.
 
 ## Stage 2: Planning
 
-Read `workflows/02-planning.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/02-planning.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Follow the `skill-resolution` skill for stage `planning`, agent `planner`. Show any warnings.
 
@@ -103,9 +103,9 @@ Update `current_stage = "design"`.
 
 ## Stage 3: Design
 
-Read `workflows/03-design-architecture.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/03-design-architecture.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
-Follow the `skill-resolution` skill for stage `design`, agent `architect` (merge backend and frontend role results). Show any warnings.
+Follow the `skill-resolution` skill for stage `design`, agent `architect`, using its **Architect: Multiple Roles** rules: only the roles active in `config.focus` are resolved, each with its own mode, and the Extensions block carries a `### Shared` section plus one `### Role: <role>` section per active role. Never combine the roles into a single mode. Show any warnings.
 
 Spawn an `architect` agent with:
 - The task file (requirements + subtasks)
@@ -142,7 +142,7 @@ Reply "approve" to continue to Development, or describe any changes needed.
 
 ## Stage 4: Development
 
-Read `workflows/04-development.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/04-development.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Follow the `skill-resolution` skill for stage `development` twice: (role `backend`, agent `backend-developer`) and (role `frontend`, agent `frontend-developer`). For each, check for a scaffold skill and run it first if `project_type = "new"`. Show any warnings.
 
@@ -176,7 +176,7 @@ Update `current_stage = "qa"`.
 
 ## Stage 5: QA
 
-Read `workflows/05-testing-qa.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/05-testing-qa.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Follow the `skill-resolution` skill for stage `qa`, agent `qa-engineer`. Show any warnings.
 
@@ -189,7 +189,7 @@ After the agent returns:
   - `stages.qa.status = "done"`
   - Add `"qa"` to `stages_completed`
   - Set `task.status = "done"`, `task.completed_at = now`
-  - Run any post-QA Commands from extensions (present approval gate for commands marked `[requires-gate]`)
+  - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs; only commands tagged `[auto]` (configured with `auto: true`) run without one
   - Set `state.json: current_stage = "idle", active_task_id = null`
   - Show completion summary
 

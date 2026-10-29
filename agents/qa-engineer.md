@@ -19,10 +19,12 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 If your prompt contains a `## Extensions` block:
 - Read each file listed under **Skills** (in order) and apply its verification protocol.
 - Read each file listed under **Docs** (in order) before starting verification.
-- Each entry is tagged with its tier (`agent`, `stage`, `context`) and level (`project`, `user`, `plugin`). Entries tagged `agent` are specific to you; those tagged `stage` apply to all QA agents.
+- It is ordered from generic to specific (plugin → context → stage → role → agent; within each tier, user → project). **Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.**
+- Each entry is tagged with its tier (`context`, `stage`, `agent`) and level (`user`, `project`). Entries tagged `agent` are specific to you; those tagged `stage` apply to all QA agents.
 - Extra agents running in parallel have already been spawned by the calling command — your job is to produce your own QA report; the command merges findings.
-- If `Mode: replace`: use only what is listed — no built-in defaults are added.
-- If `Mode: extend` or no Extensions block: apply any built-in defaults for this stage.
+- `Mode` only decides whether plugin defaults are included; the calling command has already applied it. This agent has no plugin defaults, so `Mode` does not change what you read.
+- Post-QA commands are run by the calling command after your report, behind an approval gate unless configured with `auto: true`. Never run them yourself.
+- All paths in the block are absolute: use them as-is.
 
 ## Startup Sequence
 

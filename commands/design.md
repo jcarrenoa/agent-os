@@ -18,13 +18,13 @@ You are running Stage 3 (Design & Architecture) of the agent-os pipeline.
 
 ## Run Stage 3
 
-Read `workflows/03-design-architecture.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/03-design-architecture.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Set `stages.design.status = "in_progress"` and update state.json.
 
 ### Resolve Extensions
 
-Follow the `skill-resolution` skill for stage `design`, agent `architect`. Run with role `backend` and role `frontend` separately if both have overrides, then merge. Show any warnings to the user.
+Follow the `skill-resolution` skill for stage `design`, agent `architect`, using its **Architect: Multiple Roles** rules: only the roles active in `config.focus` are resolved, each with its own mode, and the Extensions block carries a `### Shared` section plus one `### Role: <role>` section per active role. Never combine the roles into a single mode. Show any warnings to the user.
 
 Spawn an `architect` agent. Pass it:
 - The full task file (requirements + subtasks)

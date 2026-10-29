@@ -17,7 +17,7 @@ You are running Stage 5 (Testing & QA) of the agent-os pipeline.
 
 ## Run Stage 5
 
-Read `workflows/05-testing-qa.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/05-testing-qa.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Set `stages.qa.status = "in_progress"` and update state.json.
 
@@ -41,9 +41,9 @@ No critical or major issues:
 2. Update `task.test_results` from QA report.
 3. Add `"qa"` to `stages_completed`.
 4. Set `task.status = "done"`, `task.completed_at = now`.
-5. **Post-QA commands**: If the extension resolution result includes Commands:
-   - For each command marked `[requires-gate]`: present an approval gate before running it. The gate must name the command and describe any external effects (push, deploy, publish). Wait for user approval.
-   - Run non-gate commands automatically.
+5. **Post-QA commands**: If the extension resolution result includes Post-QA commands, run them in the listed order:
+   - Every command tagged `[gate]` (the default for any command not configured with `auto: true`): present an approval gate (approval-gates skill) before running it. The gate names the command and states that it may have external effects (push, deploy, publish, posting comments). Wait for the user's explicit approval; if declined, skip it and note it in the summary.
+   - Only commands tagged `[auto]` run without a gate.
 6. Set `state.json`:
    ```json
    {
@@ -54,7 +54,7 @@ No critical or major issues:
      "blocker": null
    }
    ```
-6. Output completion summary.
+7. Output completion summary.
 
 ### If REQUEST_CHANGES
 

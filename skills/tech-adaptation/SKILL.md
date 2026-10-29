@@ -1,7 +1,7 @@
 ---
 name: tech-adaptation
-description: Plugin default skill for backend-developer and frontend-developer agents. Applied automatically when mode is "extend" (the default) and no replacement skill is configured. Resolved by the skill-resolution skill — do not reference this file directly from agents or commands; use the Extensions block instead.
-version: 1.1.0
+description: Plugin default skill for the architect, backend-developer and frontend-developer agents. Added automatically when mode is "extend" (the default); mode "replace" omits it without affecting other extensions. Resolved by the skill-resolution skill to an absolute path under the plugin root and passed in the agent's Extensions block.
+version: 1.2.0
 ---
 
 # Tech Adaptation Protocol
@@ -167,7 +167,7 @@ Apply these based on `tech_stack.database`:
 
 ## Step 5: Apply Conventions from CLAUDE.md
 
-After applying stack-specific patterns, read `CLAUDE.md` (if present). Any conventions, restrictions, or patterns defined there **override** the defaults from this skill.
+After applying stack-specific patterns, read the workspace root `CLAUDE.md` (if present) and, when you work in a `working_directory` (monorepo / multi-repo), also `[working_directory]/CLAUDE.md`. Any conventions, restrictions, or patterns defined there **override** the defaults from this skill; on conflict between the two, the subrepo's `CLAUDE.md` wins.
 
 ## Non-Negotiable Rules (all stacks)
 

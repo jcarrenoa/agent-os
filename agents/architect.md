@@ -19,9 +19,13 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 If your prompt contains a `## Extensions` block:
 - Read each file listed under **Skills** (in order) and apply its architecture protocol.
 - Read each file listed under **Docs** (in order) before designing.
-- Each entry is tagged with its tier (`agent`, `role`, `stage`, `context`) and level (`project`, `user`, `plugin`). Entries tagged `agent` are specific to you; those tagged `role` apply to your role (backend or frontend); those tagged `stage` apply to all design agents.
-- If `Mode: replace`: use only what is listed — no built-in defaults are added.
-- If `Mode: extend` or no Extensions block: apply any built-in defaults for this stage.
+- It is ordered from generic to specific (plugin → context → stage → role → agent; within each tier, user → project). **Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.**
+- The block has a `### Shared` section (context, stage and agent tiers) and one `### Role: <role>` section per active role (only the roles enabled by `config.focus`). Each role section carries its own `Mode`, its plugin defaults (tech-adaptation, when that role's mode is `extend`) and its role-tier entries.
+- When designing the part of the solution that belongs to a role, apply in this order: that role's plugin defaults → shared context and stage entries → that role's entries → shared agent entries. Never apply one role's entries or mode to the other role.
+- Each entry is tagged with its tier (`plugin`, `context`, `stage`, `role`, `agent`) and level (`plugin`, `user`, `project`).
+- All paths in the block are absolute: use them as-is.
+
+If there is no `## Extensions` block: read `${CLAUDE_PLUGIN_ROOT}/skills/tech-adaptation/SKILL.md` and apply it to every active role.
 
 ## Your Inputs
 
@@ -56,7 +60,7 @@ For each major component that will be created or modified:
 - Define its dependencies (what it calls, what calls it)
 - Identify the file(s) it will live in
 
-Apply the stack-specific architecture patterns from the **Extensions** block in your prompt (or tech-adaptation if no extensions are configured for this stage).
+Apply the stack-specific architecture patterns from the **Extensions** block in your prompt, role by role as described in [Extensions](#extensions).
 
 ### Step 3: Design Data Models
 
@@ -92,7 +96,7 @@ An ADR is required when:
 Create an ADR file for each decision:
 File: `.agent-os/decisions/DEC-NNN.json`
 
-Use the schema in `schemas/decision.schema.json`.
+Use the schema in `${CLAUDE_PLUGIN_ROOT}/schemas/decision.schema.json`.
 
 ### Step 6: Identify Risks
 

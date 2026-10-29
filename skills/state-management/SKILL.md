@@ -1,7 +1,7 @@
 ---
 name: state-management
 description: This skill should be used whenever agent-os needs to read or write state files in .agent-os/. Use it before reading config.json, state.json, or any task/decision file, and before writing any of them. Never modify state files without following this protocol.
-version: 1.0.0
+version: 1.0.1
 ---
 
 # State Management Protocol
@@ -42,7 +42,7 @@ Always read before writing. Never assume state is valid without reading it.
 
 1. **Always read the file before writing it.** Never overwrite without loading current state.
 2. **Atomic updates only.** Never partially update a file. Write the complete updated object.
-3. **Validate before writing.** The written object must conform to its schema in `schemas/`.
+3. **Validate before writing.** The written object must conform to its schema in `${CLAUDE_PLUGIN_ROOT}/schemas/` (the agent-os plugin root, not the project).
 4. **Update `last_updated`** in `state.json` every time it changes.
 
 ### Updating state.json

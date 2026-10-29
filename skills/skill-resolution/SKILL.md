@@ -1,20 +1,33 @@
 ---
 name: skill-resolution
-description: Resolves which skills, docs, agents, and commands are active for a given pipeline stage, role, and agent. Use this skill before spawning any agent to determine what extensions are configured. Called by every stage command (discover, plan, design, develop, qa) in the agent-os pipeline.
-version: 2.0.0
+description: Resolves which skills, docs, agents, and commands are active for a given pipeline stage, role, and agent, and resolves the agent-os plugin root. Use this skill before spawning any agent to determine what extensions are configured, and before reading any file bundled with the plugin (workflows, schemas, plugin skills). Called by every stage command (discover, plan, design, develop, qa) in the agent-os pipeline.
+version: 3.0.0
 ---
 
 # Skill Resolution Protocol
 
-Determines the complete, ordered set of skills and docs an agent receives. Combines three configuration levels (plugin defaults → user defaults → project config) and four specificity tiers (context → stage → role → agent), with the most specific value winning for scalars and union-without-duplicates for lists.
+Determines the complete, ordered set of skills and docs an agent receives. Combines three configuration levels (plugin defaults, user defaults, project config) and five tiers ordered from generic to specific (plugin → context → stage → role → agent). Later entries override earlier ones on conflict.
+
+## Plugin Root
+
+Every file bundled with agent-os (workflows, schemas, plugin skills) is addressed with an absolute path built from the plugin root. Never read a plugin file through a path relative to the working directory: the working directory is the user's project, not the plugin.
+
+The plugin root is: `${CLAUDE_PLUGIN_ROOT}`
+
+Claude Code substitutes the plugin root variable inline when it loads skill, command, and agent content (documented in the Claude Code plugins reference, "Where each variable resolves"), so the line above already holds the absolute path of the installed plugin version. Use it as follows:
+
+1. **Normal case**: the line above shows an absolute path. That is `PLUGIN_ROOT`.
+2. **Fallback** (only if the line above is not an absolute path because it still starts with `${`, e.g. on an older Claude Code version): glob `~/.claude/plugins/**/skills/tech-adaptation/SKILL.md`. Keep only matches whose plugin root (the directory that contains `skills/`) contains `.claude-plugin/plugin.json` with `"name": "agent-os"`. If several remain, prefer those under `plugins/cache/` and take the most recently modified one. That root is `PLUGIN_ROOT`. If none remain, stop and tell the user the agent-os plugin root could not be found.
+
+The calling command resolves `PLUGIN_ROOT` once per run and passes absolute paths to subagents. Subagents never search for plugin files on their own.
 
 ## Inputs
 
 The calling command provides:
 - **stage**: `discovery` | `planning` | `design` | `development` | `qa`
-- **role** (optional): `backend` | `frontend` — provide when applicable
+- **role** (optional): `backend` | `frontend` — provide when applicable. For the architect, see [Architect: Multiple Roles](#architect-multiple-roles).
 - **agent** (required): the exact agent name being spawned (`requirements-analyst`, `planner`, `architect`, `backend-developer`, `frontend-developer`, `qa-engineer`)
-- **project root**: current working directory
+- **workspace root**: current working directory (where `.agent-os/` lives)
 
 ## Step 1: Read Configuration Sources
 
@@ -22,48 +35,60 @@ Read these files (if they exist):
 
 1. `~/.agent-os/defaults.json` — **user level**
 2. `.agent-os/config.json` → `extensions` field — **project level**
+3. `.agent-os/config.json` → `workspace_type`, `workspace_paths`, `focus` — used in Step 3.
 
-If neither has relevant data: proceed with plugin defaults only (Step 3 handles this).
+If neither 1 nor 2 has relevant data: proceed with plugin defaults only.
 
 ## Step 2: Build the Merged Effective Config
 
-Combine four tiers from least to most specific. For each tier, merge project-level over user-level.
+Build the list in five tiers, from least to most specific. Within each tier, user-level entries come first, then project-level entries.
 
-### Tier 1: `context` (global docs, all agents)
-```
-docs += union(user.context, project.context)
-```
+### Tier 1: `plugin` (built-in defaults)
 
-### Tier 2: `stages.<stage>` (all agents in this stage)
+Plugin defaults exist only for agents that design or implement code: `architect`, `backend-developer`, `frontend-developer`. For them, the plugin default is the `tech-adaptation` skill, added only when the resolved mode is `extend`. Other agents have no plugin defaults.
+
+### Tier 2: `context` (global docs, all agents)
 ```
-skills += union(user.stages.<stage>.skills, project.stages.<stage>.skills)
-docs   += union(user.stages.<stage>.docs,   project.stages.<stage>.docs)
+docs += user.context, project.context
 ```
 
-### Tier 3: `stages.<stage>.<role>` (agents in this role, if role given)
+### Tier 3: `stages.<stage>` (all agents in this stage)
+```
+skills += user.stages.<stage>.skills, project.stages.<stage>.skills
+docs   += user.stages.<stage>.docs,   project.stages.<stage>.docs
+```
+
+### Tier 4: `stages.<stage>.<role>` (agents in this role, if role given)
 Apply only when a role is provided AND the stage has per-role config (design, development).
 ```
-skills += union(user.stages.<stage>.<role>.skills, project.stages.<stage>.<role>.skills)
-docs   += union(user.stages.<stage>.<role>.docs,   project.stages.<stage>.<role>.docs)
+skills += user.stages.<stage>.<role>.skills, project.stages.<stage>.<role>.skills
+docs   += user.stages.<stage>.<role>.docs,   project.stages.<stage>.<role>.docs
 ```
 
-### Tier 4: `agents.<agent>` (this specific agent only)
+### Tier 5: `agents.<agent>` (this specific agent only)
 ```
-skills += union(user.agents.<agent>.skills, project.agents.<agent>.skills)
-docs   += union(user.agents.<agent>.docs,   project.agents.<agent>.docs)
-```
-
-For `qa-engineer` only:
-```
-extra_agents   += union(user.agents.qa-engineer.agents,   project.agents.qa-engineer.agents,
-                        user.stages.qa.agents,            project.stages.qa.agents)
-extra_commands += union(user.agents.qa-engineer.commands, project.agents.qa-engineer.commands,
-                        user.stages.qa.commands,          project.stages.qa.commands)
+skills += user.agents.<agent>.skills, project.agents.<agent>.skills
+docs   += user.agents.<agent>.docs,   project.agents.<agent>.docs
 ```
 
-**Union rule**: within each tier, project entries come first. Across tiers, more specific entries come first. No duplicates — if a name appears at multiple tiers, keep only the first occurrence (most specific).
+**Duplicates**: if the same skill name or doc path appears more than once, keep only its **last** occurrence (the most specific tier and level). The final list is ordered generic → specific.
+
+### QA extras (`qa-engineer` only)
+```
+extra_agents   += user.stages.qa.agents,   project.stages.qa.agents,
+                  user.agents.qa-engineer.agents, project.agents.qa-engineer.agents
+extra_commands += user.stages.qa.commands, project.stages.qa.commands,
+                  user.agents.qa-engineer.commands, project.agents.qa-engineer.commands
+```
+
+Each `commands` entry is either a string (`"notify-slack"`) or an object (`{ "name": "notify-slack", "auto": true }`). Normalize every entry to `{ name, auto }`, with `auto = false` for strings and for objects without `auto`. If a command name appears more than once, the last occurrence (most specific) decides `auto`.
 
 ### Mode resolution
+
+`mode` controls only Tier 1 (plugin defaults). It never removes context, stage, role, or agent entries.
+
+- `extend` (default): add the plugin defaults (Tier 1).
+- `replace`: do not add the plugin defaults. Every other tier is kept.
 
 Check in order (first non-null value wins):
 1. `project.agents.<agent>.mode`
@@ -77,53 +102,66 @@ Check in order (first non-null value wins):
 2. `user.stages.development.<role>.scaffold_if_new`
 3. Default: `null`
 
+## Architect: Multiple Roles
+
+The architect designs for every active role, so it is resolved per role instead of with a combined mode.
+
+1. Active roles come from `config.focus`: `fullstack` → `backend`, `frontend`; `backend` → `backend`; `frontend` → `frontend`. Roles that are not active are ignored even if they have configuration.
+2. **Shared section**: Tiers 2, 3 and 5 (context, `stages.design`, `agents.architect`), resolved once.
+3. **One section per active role**: the mode for that role (resolved with role = that role), Tier 1 if that mode is `extend`, and Tier 4 (`stages.design.<role>`).
+4. Never merge the role sections into one list or invent a combined mode. When designing the part of the solution that belongs to a role, the architect applies, in order: that role's plugin defaults → shared context and stage entries → that role's entries → shared agent entries.
+
 ## Step 3: Resolve File Paths
+
+### Project search locations
+
+The "project" locations for skills, agents, and commands depend on the workspace:
+
+- `single`, or no role given and not QA: `.claude/{skills,commands,agents}` at the workspace root.
+- `monorepo` / `multi-repo` with a role given: first `<workspace_paths.<role>>/.claude/{skills,commands,agents}`, then the workspace root `.claude/{skills,commands,agents}`. The subrepo wins.
+- `monorepo` / `multi-repo` for QA (no role): the workspace root first, then each active role's `<workspace_paths.<role>>/.claude/...` (backend before frontend).
+
+For the architect, use the role's search locations when resolving that role's section, and the root-only locations for the shared section.
 
 ### Skills
 
 For each name in the merged `skills` list:
 
-1. **Prefixed plugin skill** (`agent-os:<name>`): glob only in the plugin:
-   `~/.claude/plugins/**/agent-os/skills/<name>/SKILL.md`
-
+1. **Prefixed plugin skill** (`agent-os:<name>`): `PLUGIN_ROOT/skills/<name>/SKILL.md` only.
 2. **Unprefixed name**: search in order, take the first match:
-   a. `.claude/skills/<name>/SKILL.md` (project)
+   a. Project locations (see above): `<location>/.claude/skills/<name>/SKILL.md`
    b. `~/.claude/skills/<name>/SKILL.md` (user)
-   c. `~/.claude/plugins/**/agent-os/skills/<name>/SKILL.md` (plugin)
-
+   c. `PLUGIN_ROOT/skills/<name>/SKILL.md` (plugin)
 3. **Not found**: add warning `⚠ skill '<name>' not found — skipped`, continue.
 
-**Mode handling**:
-- `mode = "extend"`: prepend tech-adaptation to the list (`~/.claude/plugins/**/agent-os/skills/tech-adaptation/SKILL.md`) unless already present.
-- `mode = "replace"`: do NOT add tech-adaptation.
-- If the merged skills list is empty and `mode = "extend"`: return only tech-adaptation (plugin default behavior).
-
-**Plugin root note**: `${CLAUDE_PLUGIN_ROOT}` is documented only for hook `args` arrays, not Markdown content. Plugin skills are located via glob.
+The plugin default `tech-adaptation` always resolves to `PLUGIN_ROOT/skills/tech-adaptation/SKILL.md`.
 
 ### Docs
 
 For each path in the merged `docs` list:
 - `~/...` → expand to home directory
-- Relative path → resolve against project root
+- Relative path → resolve against the workspace root (never against a `workspace_paths` subdirectory)
 - Absolute path → use as-is
 
-Verify each file exists. If not found: add warning `⚠ doc '<path>' not found — skipped`.
+Verify each file exists. If not found: add warning `⚠ doc '<path>' not found — skipped`. Output every doc as an absolute path.
 
 ### Extra Agents (QA only)
 
-For each agent name: check `.claude/agents/<name>.md` or `~/.claude/agents/<name>.md`. Not found → warning.
+For each agent name: check the project locations (`<location>/.claude/agents/<name>.md`), then `~/.claude/agents/<name>.md`. Not found → warning.
 
 ### Commands (QA only)
 
-For each command name: check `.claude/commands/<name>.md` or `~/.claude/commands/<name>.md`. Not found → warning.
+For each command name: check the project locations (`<location>/.claude/commands/<name>.md`), then `~/.claude/commands/<name>.md`. Not found → warning.
 
-**Security**: if the command description mentions push, publish, deploy, merge, or other external effects → mark it `[requires-gate]`. The calling command must present an approval gate before running it.
+**Every post-QA command requires an approval gate by default.** Tag it `[gate]` unless its normalized entry has `auto: true`, in which case tag it `[auto]`. Never infer `auto` from the command's description, frontmatter, or name — a command without frontmatter is still gated.
 
 ### Scaffold (development stage only)
 
 If `scaffold_if_new` is non-null and `config.project_type = "new"`: resolve the skill name using the same lookup order. If not found: warning, skip.
 
 ## Step 4: Produce Output
+
+All paths in the output are absolute.
 
 ```
 EXTENSION RESOLUTION
@@ -132,23 +170,44 @@ Stage:  [stage]
 Role:   [role or "—"]
 Agent:  [agent name]
 Mode:   [extend | replace]
+Order:  generic → specific. Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.
 
 Skills (application order):
-  [/absolute/path/to/SKILL.md]   [tier: agent|role|stage|plugin]  [level: project|user|plugin]
-  [/absolute/path/to/SKILL.md]   [tier: ...]  [level: ...]
+  [/absolute/path/to/tech-adaptation/SKILL.md]  [tier: plugin]  [level: plugin]
+  [/absolute/path/to/SKILL.md]   [tier: stage|role|agent]  [level: user|project]
 
 Docs (read order):
-  [/absolute/path/to/file.md]    [tier: agent|role|stage|context]  [level: project|user]
+  [/absolute/path/to/file.md]    [tier: context|stage|role|agent]  [level: user|project]
 
 [QA only:]
-Extra agents:   [name ...]
-Post-QA commands: [name [requires-gate] ...]
+Extra agents:     [name ...]
+Post-QA commands: [name [gate] | name [auto] ...]
 
-Scaffold: [/path/to/SKILL.md | none]
+Scaffold: [/absolute/path/to/SKILL.md | none]
 
 Warnings:
   ⚠ skill 'x' not found — skipped
 ====================
+```
+
+For the architect, replace the single `Mode` / `Skills` / `Docs` lists with:
+
+```
+Order:  generic → specific. Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.
+
+### Shared
+Skills: [...]  (tiers: stage, agent)
+Docs:   [...]  (tiers: context, stage, agent)
+
+### Role: backend
+Mode:   [extend | replace]
+Skills: [...]  (tiers: plugin, role)
+Docs:   [...]  (tier: role)
+
+### Role: frontend
+Mode:   [extend | replace]
+Skills: [...]
+Docs:   [...]
 ```
 
 If nothing is configured at any level and there are no warnings:
@@ -158,13 +217,14 @@ EXTENSION RESOLUTION
 ====================
 Stage: [stage] | Agent: [agent]
 No extensions configured. Applying plugin defaults.
-Skills: [/path/to/tech-adaptation/SKILL.md]  [tier: plugin]  [level: plugin]
+Skills: [/absolute/path/to/tech-adaptation/SKILL.md]  [tier: plugin]  [level: plugin]   ← only for architect / developers
+The project's CLAUDE.md overrides all.
 ====================
 ```
 
 ## Security Rules
 
-1. Commands marked `[requires-gate]` are NEVER run automatically. The calling command must present an approval gate before executing them.
+1. Post-QA commands tagged `[gate]` are NEVER run automatically. The calling command presents an approval gate (approval-gates skill) before executing each one. Only commands explicitly configured with `auto: true` run without approval.
 2. Skills that require user input: the calling command must supply that input from the task file, because subagents cannot prompt the user.
 3. `scaffold_if_new` applies only when `project_type = "new"`.
-4. If a resolved skill contradicts the project's `CLAUDE.md`, `CLAUDE.md` wins. Mention the conflict once in the output.
+4. If a resolved skill contradicts the project's `CLAUDE.md`, `CLAUDE.md` wins. In `monorepo` / `multi-repo`, a subrepo's `CLAUDE.md` wins over the root `CLAUDE.md` for that role. Mention the conflict once in the output.
