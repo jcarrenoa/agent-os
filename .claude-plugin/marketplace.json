@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "agent-os-marketplace",
+  "description": "Agent OS — Multi-agent software development framework for Claude Code",
+  "owner": {
+    "name": "Aaron Jose Rodriguez Carreño",
+    "email": "sebasmaldo1945@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "agent-os",
+      "description": "A reusable multi-agent software development team for Claude Code. Organizes all work through a structured 5-stage pipeline: Discovery & Requirements, Analysis & Planning, Design & Architecture, Development, and Testing/QA. Adapts to any repository and technology stack. Persists state between sessions. Enforces human approval at critical decision points.",
+      "author": {
+        "name": "Aaron Jose Rodriguez Carreño"
+      },
+      "category": "development",
+      "source": "./",
+      "homepage": "https://github.com/jcarrenoa/agent-os"
+    }
+  ]
+}
