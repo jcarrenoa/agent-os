@@ -22,6 +22,8 @@ agent-os/
 │   ├── config.schema.json                  ← Project config (includes extensions)
 │   └── defaults.schema.json               ← User ~/.agent-os/defaults.json shape
 ├── workflows/*.md                          ← Detailed stage workflow instructions
+├── catalog/recommended.json                ← Optional recommended extensions (pinned recipes)
+├── catalog/templates/*.md                  ← Wrapper skill templates written by the installer
 └── marketplace/                            ← Marketplace distribution files
 ```
 
@@ -59,10 +61,15 @@ agent-os/
 ## What NOT to Do
 
 - Do not add a `CLAUDE.md` inside `.agent-os/` — that directory is created in target projects, not here.
-- Do not create any runnable code (Python, TypeScript, etc.) in this repository — this plugin works entirely through Markdown instructions.
+- Do not create any runnable code (Python, TypeScript, etc.) in this repository — this plugin works entirely through Markdown instructions. The install/uninstall commands in `catalog/recommended.json` are data, not scripts: they run only through the `extension-installer` skill, after the user explicitly approves the exact commands.
 - Do not duplicate instructions across files — reference the skills instead.
 - Do not hardcode assumptions about the target project's tech stack in the plugin files.
 - Do not hardcode external skill names or doc paths in agents or commands. Extensions are resolved dynamically via the `skill-resolution` skill. Agents receive resolved paths in their `## Extensions` prompt block.
+  - **Documented exception — the recommended catalog.** `catalog/recommended.json` names specific third-party extensions. It is optional data: extension resolution works by name and never depends on it, and agents and commands still never reference those names. Rules for the catalog:
+    - Every source is pinned to an exact version or full commit SHA, never `latest` or a branch. Bump `catalog_version` whenever a pin, recipe or template changes.
+    - Only catalog entries can be installed, and only after the user approves the exact commands (`extension-installer` skill). Nothing outside a recipe is ever run or modified.
+    - Before adding or re-pinning an entry, review the upstream code at that pin (install scripts, telemetry, network calls, side effects) and list the risks in the entry's `notes`.
+    - Recipes never run upstream installers that change the user's Claude Code configuration (e.g. `codegraph install`).
 - Do not run commands or agents with external effects (publish, push, deploy, merge, send) automatically. They must always go through an approval gate per the `approval-gates` skill.
 
 ## Versioning

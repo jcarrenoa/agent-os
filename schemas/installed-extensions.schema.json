@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent OS Installed Extensions",
+  "description": "Record kept at ~/.agent-os/installed-extensions.json of what the extension installer installed. Used for idempotence, updates, and to undo only what the installer added.",
+  "type": "object",
+  "required": ["extensions"],
+  "additionalProperties": false,
+  "properties": {
+    "extensions": {
+      "type": "object",
+      "description": "Installed catalog entries, keyed by catalog id.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pin", "installed_at", "assignments_added"],
+        "description": "One installed entry.",
+        "properties": {
+          "pin": {
+            "type": "string",
+            "description": "Commit or version that was installed."
+          },
+          "catalog_version": {
+            "type": "string",
+            "description": "catalog_version at install time."
+          },
+          "wrapper_version": {
+            "type": "string",
+            "description": "Version of the wrapper template that was written, if any."
+          },
+          "installed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the entry was installed or last updated."
+          },
+          "repos": {
+            "type": "array",
+            "description": "Repository paths where per_repo steps ran.",
+            "items": { "type": "string", "description": "Absolute path." }
+          },
+          "skipped_steps": {
+            "type": "array",
+            "description": "Optional step ids the user left out.",
+            "items": { "type": "string", "description": "Step id." }
+          },
+          "assignments_added": {
+            "type": "object",
+            "description": "Skills the installer added to ~/.agent-os/defaults.json, per agent. Uninstall removes only these.",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Skills added for one agent, keyed by agent name.",
+              "items": { "type": "string", "description": "Skill name." }
+            }
+          },
+          "errors": {
+            "type": "array",
+            "description": "Failed steps from the last run.",
+            "items": { "type": "string", "description": "Step id and error message." }
+          }
+        }
+      }
+    }
+  }
+}
