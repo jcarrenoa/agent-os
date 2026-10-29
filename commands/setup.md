@@ -1,7 +1,7 @@
 ---
 description: Initialize agent-os in the current project. Run once per repository to configure the tech stack, project type, and preferences.
 argument-hint: [--reconfigure]
-allowed-tools: [Bash, Read, Write, Glob, Grep]
+allowed-tools: [Bash, Read, Write, Glob, Grep, AskUserQuestion]
 ---
 
 # Agent OS Setup
@@ -43,7 +43,7 @@ Detect:
 - Dev server command
 - Build command
 
-## Step 2: Present Detection Results
+## Step 2: Present Detection Results and Collect Configuration
 
 Present your findings clearly:
 
@@ -66,35 +66,35 @@ Build command:  [command or "not found"]
 ─────────────────────────────────────────
 ```
 
-Then ask:
+Then use the **AskUserQuestion tool** to collect all configuration in one step. Present these 4 questions simultaneously:
 
-> Is this correct? Please confirm or correct any items.
->
-> **Available options:**
-> - Frontend: `react`, `next`, `vue`, `nuxt`, `angular`, `flutter-web`, `svelte`, `none`
-> - Backend: `fastapi`, `nestjs`, `springboot`, `dotnet`, `go`, `express`, `laravel`, `rails`, `none`
-> - Mobile: `flutter`, `react-native`, `swift`, `kotlin`, `none`
-> - Database: `postgresql`, `mysql`, `mongodb`, `sqlite`, `firestore`, `supabase`, `none`
->
-> Also tell me:
-> - **Team size**: solo / small (2-5) / large (6+)
-> - **Track `.agent-os/` in git?** (recommended: yes — enables team collaboration and history)
-> - **Preferred language for agent responses**: `en` (English) / `es` (Español)
+1. Header: "Stack" — "Is the detected stack correct?"
+   - "Yes, everything is correct" (description: "Proceed with the detected values")
+   - "I need to correct something" (description: "I'll describe the corrections after this")
 
-**Wait for the user's response before continuing.**
+2. Header: "Team size" — "What is your team size?"
+   - "Solo — just me" (description: "Lighter approval flow, no review gates")
+   - "Small team (2–5)" (description: "Standard collaboration setup")
+   - "Large team (6+)" (description: "Full review gates enabled")
 
-## Step 3: Confirm Final Configuration
+3. Header: "Git tracking" — "Track .agent-os/ in git?"
+   - "Yes — track in git (Recommended)" (description: "Full history and team collaboration")
+   - "No — keep it local only" (description: "State stays on this machine only")
 
-After the user responds, present the final confirmed configuration and ask for explicit confirmation:
+4. Header: "Language" — "Preferred language for agent responses?"
+   - "English" (description: "All agents respond in English")
+   - "Español" (description: "Todos los agentes responden en español")
 
-> Confirmed configuration:
-> - Frontend: [value]
-> - Backend: [value]
-> ...
->
-> Shall I proceed with this configuration? (yes/no)
+**Wait for the user's selections before continuing.**
 
-**Wait for confirmation.**
+## Step 3: Apply Corrections (if needed)
+
+If the user selected "I need to correct something" for the stack question:
+- Ask them to describe what needs to change (single follow-up message).
+- Apply the corrections.
+- Show the corrected stack inline before proceeding.
+
+Otherwise skip directly to Step 4.
 
 ## Step 4: Create `.agent-os/` Structure
 
