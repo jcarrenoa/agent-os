@@ -21,7 +21,7 @@ Define the complete technical architecture before a single line of implementatio
 
 ## The Agent's Job
 
-Before spawning the agent, the calling command follows the `skill-resolution` skill for stage `design` and passes the result to the agent under `## Extensions`. If backend and frontend role overrides are configured, both are merged for the architect. The agent reads listed skills and docs before designing.
+Before spawning the agent, the calling command follows the `skill-resolution` skill for stage `design` and passes the result to the agent under `## Extensions`. Only the roles active in `config.focus` are resolved; each active role gets its own section and mode in the block (see the `skill-resolution` skill, Architect: Multiple Roles). Roles are never merged into one mode. The agent reads listed skills and docs before designing.
 
 The `architect` agent:
 1. Reads `config.json` for the tech stack.

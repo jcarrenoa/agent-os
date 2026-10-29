@@ -19,9 +19,10 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 If your prompt contains a `## Extensions` block:
 - Read each file listed under **Skills** (in order) and apply its protocol.
 - Read each file listed under **Docs** (in order) before analyzing the requirements.
-- Each entry is tagged with its tier (`agent`, `stage`, `context`) and level (`project`, `user`, `plugin`). Entries tagged `agent` are specific to you; those tagged `stage` apply to all agents in this stage.
-- If `Mode: replace`: use only what is listed — no built-in defaults are added.
-- If `Mode: extend` or no Extensions block: apply any built-in defaults for this stage.
+- It is ordered from generic to specific (plugin → context → stage → role → agent; within each tier, user → project). **Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.**
+- Each entry is tagged with its tier (`context`, `stage`, `agent`) and level (`user`, `project`). Entries tagged `agent` are specific to you; those tagged `stage` apply to all agents in this stage.
+- `Mode` only decides whether plugin defaults are included; the calling command has already applied it. This agent has no plugin defaults, so `Mode` does not change what you read.
+- All paths in the block are absolute: use them as-is.
 
 ## Your Inputs
 

@@ -17,23 +17,27 @@ Read `.agent-os/config.json` → `preferences.output_language`. Write ALL your o
 ## Extensions
 
 If your prompt contains a `## Extensions` block:
-- Read each file listed under **Skills** (in order) and apply its implementation protocol.
-- Read each file listed under **Docs** (in order) before writing code.
-- Each entry is tagged with its tier (`agent`, `role`, `stage`, `context`) and level (`project`, `user`, `plugin`). Entries tagged `agent` are specific to you and override role/stage entries on mode.
-- If `Mode: replace`: use only what is listed — do not apply tech-adaptation.
-- If `Mode: extend` or no Extensions block: read `skills/tech-adaptation/SKILL.md` and apply it.
+- It is ordered from generic to specific (plugin → context → stage → role → agent; within each tier, user → project). Read each file listed under **Skills** in that order and apply its implementation protocol. Read each file listed under **Docs** in that order before writing code.
+- **Later entries override earlier ones on conflict; the project's CLAUDE.md overrides all.**
+- Each entry is tagged with its tier (`plugin`, `context`, `stage`, `role`, `agent`) and level (`plugin`, `user`, `project`).
+- `Mode` only decides whether the plugin default (tech-adaptation) is included; the calling command has already applied it to the list. Do not add or remove skills yourself based on the mode.
+- All paths in the block are absolute: use them as-is.
+
+If there is no `## Extensions` block: read `${CLAUDE_PLUGIN_ROOT}/skills/tech-adaptation/SKILL.md` and apply it.
 
 ## Startup Sequence
 
 Before writing any code:
 
-0. If your prompt includes a `working_directory` field: prepend it to ALL file paths you use in Read, Write, Edit, Glob, and Grep. Example: if `working_directory` is `frontend-repo/` and the file is `src/App.tsx`, use `frontend-repo/src/App.tsx`. Also run all Bash commands from inside this directory (`cd [working_directory] && [command]`).
+0. If your prompt includes a `working_directory` field (`monorepo` / `multi-repo`), split your paths in two groups:
+   - **Project code** (source files, tests, build files, and the subrepo's `CLAUDE.md`): prefix with `working_directory`. Example: if `working_directory` is `frontend-repo/` and the file is `src/App.tsx`, use `frontend-repo/src/App.tsx`. Run all Bash commands (tests, lint, package manager) from inside that directory: `cd [working_directory] && [command]`.
+   - **Used as-is, never prefixed**: everything under `.agent-os/` (config, tasks, decisions — they live at the workspace root), the root `CLAUDE.md`, and every absolute path received in the `## Extensions` block (doc paths there are already resolved against the workspace root).
 1. Read `.agent-os/config.json` — identify `tech_stack.frontend`, `tech_stack.package_manager`.
 2. Read `.agent-os/tasks/TASK-NNN.json` — understand requirements, plan, and your specific subtask.
 3. Read the architecture output from Stage 3 (task `stages.design.output_summary` and ADRs in `.agent-os/decisions/`).
-4. Read `CLAUDE.md` — apply project-specific conventions.
+4. Read the root `CLAUDE.md`. If you have a `working_directory`, also read `[working_directory]/CLAUDE.md`. Apply both; on conflict, the subrepo's `CLAUDE.md` wins.
 5. Read the most relevant existing frontend files to understand UI patterns, component structure, and state management approach.
-6. Apply Extensions: read each skill and doc from the `## Extensions` block (or tech-adaptation if no Extensions block is present).
+6. Apply Extensions: read each skill and doc from the `## Extensions` block, in order (or tech-adaptation if no Extensions block is present — see above).
 
 ## Implementation Rules
 

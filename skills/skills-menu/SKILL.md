@@ -1,7 +1,7 @@
 ---
 name: skills-menu
 description: Interactive menu for configuring agent-os extensions (skills, docs, agents, commands). Invoked by /agent-os:skills with no arguments and by /agent-os:setup for the extension configuration step. Guides the user through selecting a destination (by agent or by stage/role), selecting elements, setting mode, and choosing the save level.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Skills Menu Protocol
@@ -15,7 +15,8 @@ Before starting the menu:
 2. Read `~/.agent-os/defaults.json` if it exists (user-level extensions).
 3. Glob `.claude/skills/*/SKILL.md` and `~/.claude/skills/*/SKILL.md` — read the `name` and `description` frontmatter of each (first 6 lines). Build a list: `available_skills[]`.
 4. Glob `.claude/agents/*.md` and `~/.claude/agents/*.md` — read `name` and `description`. Build `available_agents[]`.
-5. Glob `.claude/commands/*.md` and `~/.claude/commands/*.md` — read `description`. Build `available_commands[]`.
+5. Glob `.claude/commands/*.md` and `~/.claude/commands/*.md` — read `description` (it may be missing: a command without frontmatter is still listed, by file name). Build `available_commands[]`.
+5b. If `config.workspace_type` is `monorepo` or `multi-repo`: repeat steps 3–5 for `<workspace_paths.backend>/.claude/` and `<workspace_paths.frontend>/.claude/`, and tag each element with its origin (`backend`, `frontend`). Elements from a subrepo are only offered for destinations of that role (or QA).
 6. Collect docs already referenced in extensions (from config.json + defaults.json). Build `available_docs[]`.
 
 ---
@@ -230,12 +231,29 @@ AskUserQuestion:
   question: "¿Cómo aplicar las skills en [destination]?"
   header: "Modo"
   options:
-    - "Extend (Recomendado) — tech-adaptation primero, luego las skills seleccionadas"
-    - "Replace — solo las skills seleccionadas, tech-adaptation no se aplica"
+    - "Extend (Recomendado) — se añade tech-adaptation (default del plugin) antes de las skills configuradas"
+    - "Replace — no se añade tech-adaptation; las skills de contexto, etapa, rol y agente se mantienen"
   multiSelect: false
 ```
 
 Store result as `selected_mode`.
+
+---
+
+## Step E2: Post-QA Command Approval (only if is_qa = true and commands were selected)
+
+Every post-QA command requires an approval gate by default. Ask only to opt specific commands out:
+
+```
+AskUserQuestion:
+  question: "¿Qué comandos post-QA pueden ejecutarse SIN pedir aprobación? (por defecto todos piden aprobación)"
+  header: "Aprobación"
+  options:
+    - "<command> — <description or 'sin descripción'>" (one per selected command, up to 3 per page; paginate as in Step D)
+  multiSelect: true
+```
+
+Store the selected names as `auto_commands[]`. Unselected commands stay gated. Never pre-select a command, and never infer `auto` from its description or name.
 
 ---
 
@@ -263,10 +281,12 @@ Build the merged result for this destination (what the agent would actually rece
 ─────────────────────────────────────────
 Vista previa — [destination]
 ─────────────────────────────────────────
+Orden: genérico → específico. Lo posterior prevalece en caso de conflicto; el CLAUDE.md del proyecto prevalece sobre todo.
+
 Skills (en orden de aplicación):
-  [/path/to/SKILL.md]   (agente · proyecto)
-  [/path/to/SKILL.md]   (etapa · proyecto)
   [/path/to/SKILL.md]   (plugin · default)
+  [/path/to/SKILL.md]   (etapa · proyecto)
+  [/path/to/SKILL.md]   (agente · proyecto)
 
 Docs:
   [/path/to/doc.md]     (agente · proyecto)
@@ -275,7 +295,7 @@ Modo: extend | replace
 
 [Si is_qa:]
 Agentes extra: [...]
-Comandos post-QA: [...] [requires-gate si tiene efectos externos]
+Comandos post-QA: [nombre [requiere aprobación] | nombre [auto] ...]
 ─────────────────────────────────────────
 ```
 
@@ -304,7 +324,8 @@ AskUserQuestion:
 **For `save_target = "global"`**: Read `~/.agent-os/defaults.json` (create if missing), merge, write back. Same mapping.
 
 **Merge rules**:
-- Lists: union without duplicates. New entries come first within their level.
+- Lists: union without duplicates. New entries are appended at the end of their list.
+- `commands`: write commands in `auto_commands[]` as `{ "name": "<command>", "auto": true }` and every other command as a plain string (gated). If a command already exists in the list, replace its entry with the new form.
 - `mode`: set to `selected_mode` if this is a code-implementing destination.
 - `scaffold_if_new`: preserve existing value (do not change from the menu).
 

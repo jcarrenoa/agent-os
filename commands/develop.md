@@ -18,7 +18,7 @@ You are running Stage 4 (Development) of the agent-os pipeline.
 
 ## Run Stage 4
 
-Read `workflows/04-development.md` and follow it completely.
+Read `${CLAUDE_PLUGIN_ROOT}/workflows/04-development.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Set `stages.development.status = "in_progress"` and update state.json.
 

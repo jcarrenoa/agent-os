@@ -160,6 +160,7 @@ Run this step after receiving the user's answers from Step 2 but before writing 
 1. Glob for external skills:
    - `.claude/skills/*/SKILL.md` (project-level)
    - `~/.claude/skills/*/SKILL.md` (user-level, if accessible)
+   - For `monorepo` / `multi-repo`: also `<backend path>/.claude/skills/*/SKILL.md` and `<frontend path>/.claude/skills/*/SKILL.md` (the paths chosen in Step 1.5)
    
 2. If **no external skills, agents, or commands found AND no user defaults exist**: skip to Step 3. Do not write an `extensions` key in config.json.
 

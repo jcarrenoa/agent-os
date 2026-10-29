@@ -38,7 +38,8 @@ Each developer agent receives:
 3. The config file path (for tech stack).
 4. The list of ADR IDs from `task.decisions` (to read architecture decisions).
 5. Implementation order guidance from Stage 3.
-6. The extension resolution block for their role under `## Extensions` (includes resolved skill and doc paths, and mode).
+6. The extension resolution block for their role under `## Extensions` (includes resolved absolute skill and doc paths, and mode).
+7. In `monorepo` / `multi-repo`: `working_directory` for their role. The agent prefixes only project code paths with it; `.agent-os/` and the Extensions paths are used as-is from the workspace root.
 
 ## Parallel Execution
 

@@ -1,6 +1,6 @@
 ---
 description: Manage skill, doc, agent, and command extensions for the agent-os pipeline. With no arguments opens an interactive menu. With arguments: list, add, remove, mode — for both stage/role and per-agent targets. Use --global to write to ~/.agent-os/defaults.json instead of the project config.
-argument-hint: "[list [--agent <agent> | <stage>[.<role>]]] [add|remove [--agent <agent>] <name|path>] [mode [--agent <agent>] <stage>.<role> extend|replace] [--global]"
+argument-hint: "[list [--agent <agent> | <stage>[.<role>]]] [add|remove [--agent <agent>] <name|path>] [mode [--agent <agent>] <stage>.<role> extend|replace] [--global] [--auto]"
 allowed-tools: [Read, Write, Glob, AskUserQuestion]
 ---
 
@@ -29,6 +29,7 @@ Arguments: $ARGUMENTS
 /agent-os:skills add <stage>[.<role>] <name|path>      ← add to stage/role
 /agent-os:skills add --agent <agent> <name|path>       ← add to specific agent
 /agent-os:skills add <...> --global                    ← write to ~/.agent-os/defaults.json
+/agent-os:skills add qa <command> --auto               ← post-QA command that runs WITHOUT approval
 
 /agent-os:skills remove <stage>[.<role>] <name|path>
 /agent-os:skills remove --agent <agent> <name|path>
@@ -72,14 +73,14 @@ Por etapa:
   planning   (none)
   design     skills: [...]  backend.mode: extend  frontend.mode: replace
   development  backend: [skills]  frontend: [skills]
-  qa         skills: [...]  agents: [...]  commands: [...]  [requires-gate]
+  qa         skills: [...]  agents: [...]  commands: [name [gate] | name [auto] ...]
 
 Por agente:
   architect          skills: [...]   mode: extend
   backend-developer  skills: [...]   mode: replace
   qa-engineer        agents: [...]   commands: [...]
 
-Plugin defaults (always active unless mode=replace):
+Plugin defaults (added unless mode=replace; replace never removes stage/role/agent entries):
   backend-developer → tech-adaptation
   frontend-developer → tech-adaptation
   architect → tech-adaptation
@@ -102,6 +103,7 @@ Add an entry to extensions. Supports `--agent` and `--global` flags.
    - `--agent <agent>`: agent-level target. Valid agents: `requirements-analyst`, `planner`, `architect`, `backend-developer`, `frontend-developer`, `qa-engineer`.
    - Without `--agent`: first positional arg is `<stage>[.<role>]`.
    - `--global`: write to `~/.agent-os/defaults.json` (create if missing) instead of `.agent-os/config.json`.
+   - `--auto`: only valid for post-QA commands. Stores the command as `{ "name": "<command>", "auto": true }` so it runs without an approval gate. Without `--auto`, commands are stored as plain strings and always require approval.
    - `<name|path>`: if starts with `/` or `~` or ends with `.md` → doc (add to `docs[]`). Otherwise → skill/agent/command name (add to `skills[]` for most destinations; for QA, add to `agents[]` if it matches a known agent name, `commands[]` if it matches a command).
 
 2. Read the target file. Merge the new entry into the correct location:
@@ -109,7 +111,7 @@ Add an entry to extensions. Supports `--agent` and `--global` flags.
    - `<stage>[.<role>]` → `extensions.stages.<stage>[.<role>].[docs|skills]`
    - For qa: `extensions.stages.qa.[agents|commands]` or `extensions.agents.qa-engineer.[agents|commands]`
 
-3. Do not add duplicates.
+3. Do not add duplicates. For commands, compare by name (string or object `name`); re-adding a command with or without `--auto` replaces its entry.
 
 4. Write the target file.
 
@@ -146,4 +148,4 @@ Valid destinations: `architect`, `backend-developer`, `frontend-developer` (agen
 4. Set `extensions.agents.<agent>.mode` or `extensions.stages.<stage>.<role>.mode`.
 5. Write the target file.
 6. Confirm: "Set mode to `<value>` for `<destination>` in `<file>`."
-   - If `replace`: remind "replace mode skips tech-adaptation. Add explicit skills or the agent will have no stack context."
+   - If `replace`: remind "replace mode only skips the plugin default (tech-adaptation); stage, role and agent skills still apply. Make sure they give the agent enough stack context."
