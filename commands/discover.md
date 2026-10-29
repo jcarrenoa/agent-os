@@ -33,10 +33,12 @@ Set `state.json.stage_status = "in_progress"`.
 Follow the `skill-resolution` skill for stage `discovery`, role `—`, agent `requirements-analyst`. Show any warnings to the user.
 
 Spawn a `requirements-analyst` agent. Pass it:
-- The task description
+- The task description (verbatim)
 - The project config path
 - The task file path
 - The full extension resolution block under the heading `## Extensions`
+
+Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 After the agent completes:
 1. Update `task.requirements` from the agent's output.

@@ -1,7 +1,7 @@
 ---
 name: skill-resolution
-description: Resolves which skills, docs, agents, and commands are active for a given pipeline stage, role, and agent, and resolves the agent-os plugin root. Use this skill before spawning any agent to determine what extensions are configured, and before reading any file bundled with the plugin (workflows, schemas, plugin skills). Called by every stage command (discover, plan, design, develop, qa) in the agent-os pipeline.
-version: 3.1.0
+description: Resolves which skills, docs, agents, and commands are active for a given pipeline stage, role, and agent, resolves the agent-os plugin root, defines what goes in each agent prompt, and verifies that agents applied their extensions. Use this skill before spawning any agent to determine what extensions are configured, and before reading any file bundled with the plugin (workflows, schemas, plugin skills). Called by every stage command (discover, plan, design, develop, qa) in the agent-os pipeline.
+version: 3.2.0
 ---
 
 # Skill Resolution Protocol
@@ -237,6 +237,30 @@ Skills: [/absolute/path/to/tech-adaptation/SKILL.md]  [tier: plugin]  [level: pl
 The project's CLAUDE.md overrides all.
 ====================
 ```
+
+## Step 5: Build the Agent Prompt
+
+The agent must read its inputs from disk, so the prompt carries **references, not content**. It contains only:
+
+- The `## Extensions` block exactly as produced in Step 4.
+- Paths: `.agent-os/config.json`, the task file, the ADR files that apply (`.agent-os/decisions/DEC-NNN.json`), and `working_directory` when applicable.
+- Development only: the subtask IDs assigned to this run, in execution order, each with its title on one line.
+- Discovery only: the user's task description, verbatim.
+- Decisions the agent cannot find in any file (e.g. changes the user requested at a gate), stated briefly.
+
+Never copy into the prompt the content of the design, ADRs, requirements, subtask details beyond their titles, config values, rules from any `CLAUDE.md`, or the content of skills and docs. A prompt that already contains them gives the agent a reason to skip its files and its extensions.
+
+Never read test plans, checklists or expected-results files from the workspace to pass hints to agents.
+
+## Step 6: Verify Extensions Applied
+
+Every agent-os agent ends its report with an `EXTENSIONS APPLIED` section listing each Skills and Docs path it read, with one line on how it applied it (or `not applicable: <reason>`). After each agent returns:
+
+1. Compare that section with the resolution's Skills and Docs paths (for the architect, the paths of every section). When there was no `## Extensions` block, the expected path is the plugin default (tech-adaptation) for the architect and developers, and nothing for the rest.
+2. If the section is missing, or a resolved path is not in it, tell the user `⚠ <agent> did not confirm applying: <missing paths | "EXTENSIONS APPLIED section missing">` and append the same text to `stages.<stage>.extension_warnings` in the task file.
+3. Do not block the stage and do not re-run the agent automatically. A path marked `not applicable` counts as read; mention it in the stage summary.
+
+Extra QA agents from extensions are not agent-os agents: do not verify their reports.
 
 ## Security Rules
 

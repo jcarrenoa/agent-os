@@ -48,28 +48,25 @@ Before iterating subtasks, read `config.focus` and `config.workspace_type`:
 
 ### Subtask Execution
 
-Read the `subtasks` array from the task file. For each subtask in dependency order (applying focus filtering above):
+**One agent run per role**, following the Execution Rule in the development workflow:
 
-1. Identify the assigned role: `backend-developer` or `frontend-developer`.
-2. Spawn the appropriate agent with:
-   - The specific subtask details
-   - The task file
-   - The project config
-   - The relevant ADR files from `.agent-os/decisions/`
+1. Read the `subtasks` array from the task file and apply the focus filtering above. Group the remaining subtasks by role, each group in dependency order.
+2. If no subtask of one role depends on a subtask of the other role: spawn one `backend-developer` and one `frontend-developer` in parallel, each with all the subtasks of its role.
+3. If there are cross-role dependencies: split each role's list into consecutive batches at every cross-role dependency, and run the batches in dependency order (one agent run per batch; batches of different roles run in parallel when neither waits for the other).
+4. Each agent run receives (Step 5 of the `skill-resolution` skill — references only, never pasted content):
+   - The subtask IDs of that run, in order, each with its title
+   - The task file path and the project config path
+   - The paths of the relevant ADR files in `.agent-os/decisions/`
    - The extension resolution block for that role under the heading `## Extensions`
    - `working_directory: [path]` if workspace_type is `monorepo` or `multi-repo` (see above)
-3. After the agent completes:
-   - Update the subtask `status = "done"` in the task file.
+5. After the agent returns, track state **per subtask** from its report:
+   - Set each reported subtask's `status = "done"` (or blocked, see below) in the task file.
    - Append modified/created files to `task.files_modified`.
-4. Continue to the next subtask.
-
-### Parallel Subtasks
-
-If the plan specifies subtasks that can run in parallel (no dependency between them), you may spawn both the backend-developer and frontend-developer agents simultaneously for their respective tasks.
+   - Verify its `EXTENSIONS APPLIED` section (Step 6 of the `skill-resolution` skill).
 
 ### Subtask Failure
 
-If an agent reports it could not complete a subtask:
+If an agent reports a blocked subtask (it stops there and does not start the rest of its run):
 - Set `task.status = "blocked"`.
 - Add a blocker entry to `task.blockers`.
 - Update `state.json.stage_status = "blocked"`.

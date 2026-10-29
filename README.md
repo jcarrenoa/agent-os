@@ -162,6 +162,13 @@ Every post-QA command asks for approval before it runs — whatever its descript
 
 Here `review-pull-request` is gated and `update-changelog` runs automatically. From the CLI: `/agent-os:skills add qa update-changelog --auto`.
 
+### How agents apply extensions
+
+- **Read first, verifiably**: before doing anything else, every agent reads each Skills and Docs path from its `## Extensions` block with the Read tool, in order. Its final report ends with an `EXTENSIONS APPLIED` section listing each path and how it was applied (or `not applicable`). The stage command compares that section with the resolution; a missing section or path is reported to you and recorded in the task file (`stages.<stage>.extension_warnings`), without blocking the pipeline.
+- **No self-discovery**: agents never read `.claude/skills/`, `.claude/commands/`, `.claude/agents/` (project, subrepo or `~/.claude/`) or other plugins' skills unless that exact path is in their Extensions block. Only the resolution decides what applies. `CLAUDE.md` files are still read.
+- **References, not content**: stage commands pass file paths (task, config, ADRs, Extensions) and subtask IDs, never the pasted design, ADRs or `CLAUDE.md` rules, so agents read the real files instead of a summary.
+- **Development runs one agent per role**, with that role's subtasks in dependency order. Backend and frontend run in parallel when neither depends on the other; status is still tracked per subtask.
+
 ### Three Ways to Configure
 
 **1. Interactive menu** (recommended — no arguments needed):
