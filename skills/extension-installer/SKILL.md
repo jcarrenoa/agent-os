@@ -1,7 +1,7 @@
 ---
 name: extension-installer
 description: Protocol to install, update, uninstall, and report the recommended extensions listed in the agent-os catalog (catalog/recommended.json), always after one explicit user approval of the exact commands. Used by /agent-os:extensions and by the optional recommended-extensions step of /agent-os:setup. Never installs anything that is not in the catalog.
-version: 1.1.0
+version: 1.1.1
 ---
 
 # Extension Installer Protocol
@@ -26,7 +26,11 @@ Installs third-party extensions from the agent-os catalog. Everything here is op
 | `~/.agent-os/installed-extensions.json` | What the installer installed (schema: `PLUGIN_ROOT/schemas/installed-extensions.schema.json`) |
 | `~/.agent-os/defaults.json` | User-level extension assignments (schema: `PLUGIN_ROOT/schemas/defaults.schema.json`) |
 
-Read each file before writing it, and write the complete updated object (state-management rules).
+Read each file before writing it, and write the complete updated object (state-management rules). For these two JSON files:
+
+- **Paths use forward slashes.** Store every path as `C:/Users/...`, never with backslashes (an unescaped `\` makes the file invalid JSON). Normalize `\` to `/` before comparing paths.
+- **Unreadable file → stop.** If an existing file does not parse as JSON, tell the user which file and why, and stop the run. Never treat it as empty and never overwrite it.
+- **Validate after every write.** Keep the previous content, write the new one, then parse it again with a tool: `node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" "<file>"` when Node is available, `Get-Content -Raw "<file>" | ConvertFrom-Json | Out-Null` in PowerShell, or `python3 -m json.tool "<file>" > /dev/null`. If it fails, restore the previous content (or delete the file if it did not exist), record the error, and tell the user.
 
 ## Step 1: Platform and Placeholders
 
