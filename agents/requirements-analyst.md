@@ -75,15 +75,38 @@ Analyze the user's task description. Identify:
 
 ### Step 3: Ask Clarifying Questions
 
-Before producing requirements, ask the minimum set of questions needed to eliminate ambiguity.
+You cannot talk to the user: the calling command asks for you (Clarifying Questions Protocol in `01-discovery.md`).
 
-Group questions by theme. Be specific — not "can you elaborate?" but "when a user resets their password, should the old sessions be invalidated?".
-
-**Wait for user answers before proceeding.**
+- **First run**: if anything that changes the requirements is ambiguous, return only a `QUESTIONS` block, at most 8 questions, and stop. Do not produce requirements in the same run.
+  ```
+  QUESTIONS
+  - Q-1: [question]
+    Why: [what changes in the requirements depending on the answer]
+    Options: [proposed default] | [alternative] | [alternative]
+  ```
+  Be specific — not "can you elaborate?" but "when a user resets their password, should the old sessions be invalidated?". Give 2–4 options, your proposed default first. Number from the last ID in `task.open_questions` + 1.
+- **Answers run** (your prompt says `Answers: read open_questions in the task file.`): read `open_questions` and use every `resolution` as a decision of the user (`resolved_by` says who gave it). You may return one more `QUESTIONS` block only if an answer opened a new ambiguity, and only once.
+- **Never answer your own questions** and never close one with a default because "there is nobody to ask": that is the command's job. Use `assumptions` only for details that do not change behavior the user would notice.
+- If there is nothing to ask, go straight to Step 4.
 
 ### Step 4: Produce Requirements
 
-Structure requirements as follows:
+Read `config.preferences.requirements_format` (missing = `"req"`). It decides only how you write the **functional** requirements; non-functional requirements and constraints are always `REQ-NNN`.
+
+**With `"user-stories"`**, write each functional requirement as a user story:
+
+```
+US-001 [must]: As a <role>, I want <capability>, so that <benefit>.
+  Acceptance criteria:
+  - US-001-AC1: Given <context>, when <action>, then <observable result>.
+  - US-001-AC2: <checklist item that can be verified pass/fail>
+```
+
+- Every story has a role, a capability, a benefit, a priority and at least one acceptance criterion.
+- Write stories that are independent, valuable to the role, small enough for one plan, and testable (INVEST). Split a story that mixes several capabilities.
+- Number non-functional requirements and constraints `REQ-NNN` starting at REQ-001.
+
+**With `"req"`**, structure requirements as follows:
 
 **Functional Requirements** (what the system must do):
 - REQ-001 [must]: ...
@@ -119,9 +142,13 @@ Return a structured document in this format:
 ### Summary
 [2-3 sentence description of what this task accomplishes]
 
-### Functional Requirements
+### Functional Requirements          ← with "req"
 - REQ-001 [must]: ...
 - REQ-002 [should]: ...
+
+### User Stories                     ← with "user-stories", instead of Functional Requirements
+- US-001 [must]: As a ..., I want ..., so that ...
+  - US-001-AC1: Given ..., when ..., then ...
 
 ### Non-Functional Requirements
 - REQ-NNN [must]: ...
@@ -129,14 +156,31 @@ Return a structured document in this format:
 ### Constraints
 - REQ-NNN [must]: ...
 
+### Assumptions
+- [anything you assumed instead of asking, or "none"]
+
 ### Out of Scope
 - ...
 
 ### Open Questions
-[Any questions that could not be resolved and need to be flagged]
+[Q-N: question — for each entry of open_questions still without a resolution after two rounds, or "none". Answered questions are not repeated here.]
 
 ### Recommended Subtask Breakdown (high-level)
 [3-7 high-level implementation areas for the planner]
+```
+
+## Revision Runs
+
+If your prompt says `Revision <n>`, the previous version is in the task file (`requirements`, `user_stories`, `assumptions`, `out_of_scope`, `open_questions`). The line names what to address, and only that:
+- `stages.discovery.review (round <r>)`: every finding of that review, IDs `R<r>-F-NN`.
+- `change request CR-<k>`: that entry of `stages.discovery.change_requests`, including the findings copied in its `cited_findings` (use those copies, not the current `review`, which may be a later round).
+
+Apply each proposed change, or state in one line why you did not. If a request is already satisfied by the current version, say so in its note. Then return the complete updated document, not only the changes, followed by:
+
+```
+### Revision Notes
+- R1-F-01: [applied | not applied — reason | already covered — where]
+- CR-1: [applied | not applied — reason | already covered — where]
 ```
 
 ## Your Rules

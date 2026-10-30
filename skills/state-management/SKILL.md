@@ -1,7 +1,7 @@
 ---
 name: state-management
 description: This skill should be used whenever agent-os needs to read or write state files in .agent-os/. Use it before reading config.json, state.json, or any task/decision file, and before writing any of them. Never modify state files without following this protocol.
-version: 1.0.1
+version: 1.1.0
 ---
 
 # State Management Protocol
@@ -85,9 +85,21 @@ Template for a new task:
   "decisions": [],
   "blockers": [],
   "files_modified": [],
-  "test_results": null
+  "test_results": null,
+  "git_baseline": {}
 }
 ```
+
+### Recording the git baseline
+
+Right after creating a task file, record the uncommitted changes that already exist, so post-QA commands (for example a commit command) can tell them apart from the task's own changes. Use only read-only git commands: never stash, commit, reset or checkout.
+
+1. Repos: `single` and `monorepo` → the workspace root, key `"."`; `multi-repo` → each path in `config.workspace_paths`, key = that path. Skip a path where `git -C <path> rev-parse --is-inside-work-tree` fails.
+2. For each repo:
+   - `head` = `git -C <repo> rev-parse HEAD`, or `null` when the repo has no commits yet.
+   - `dirty`: from `git -C <repo> status --porcelain=v1 --untracked-files=all`, every modified, added, renamed (its new path), deleted or untracked path, relative to the repo. Exclude paths under `.agent-os/` and `.codegraph/`. For each one, `blob` = `git -C <repo> hash-object -- <path>`, or `null` when the file is deleted.
+3. Write `task.git_baseline = { "<repo>": { "head": "<sha>", "dirty": [ { "path": "...", "blob": "..." } ] } }`.
+4. If any repo has `dirty` entries, tell the user in one line (in `output_language`): "Aviso: hay N cambios sin commitear previos a la tarea en [repos]; quedan registrados en git_baseline y no se atribuyen a la tarea."
 
 ### Recording a stage start
 

@@ -50,6 +50,11 @@
     "accepted_at": {
       "type": ["string", "null"]
     },
+    "supersedes": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^DEC-[0-9]{3,}$", "description": "ID of an earlier decision." },
+      "description": "Earlier decisions this one replaces. When this decision is accepted, each of them becomes superseded, with superseded_by set to this ID."
+    },
     "superseded_by": {
       "type": ["string", "null"],
       "description": "ID of the decision that supersedes this one"

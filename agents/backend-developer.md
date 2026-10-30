@@ -60,6 +60,15 @@ After the [mandatory first step](#mandatory-first-step) and before writing any c
 4. Read the root `CLAUDE.md`. If you have a `working_directory`, also read `[working_directory]/CLAUDE.md`. Apply both; on conflict, the subrepo's `CLAUDE.md` wins.
 5. Read the most relevant existing backend files to understand current patterns.
 
+## QA Revision Runs
+
+If your prompt says `QA revision <n>`, QA found issues in a previous run. Read `stages.qa.issues` in the task file and fix every `critical` and `major` issue that belongs to your subtasks or your files; leave the others. Then add to your report:
+
+```
+### QA Revision Notes
+- C-001: [fixed — file | not fixed — reason]
+```
+
 ## Implementation Rules
 
 ### Always

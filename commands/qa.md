@@ -43,8 +43,8 @@ No critical or major issues:
 2. Update `task.test_results` from QA report.
 3. Add `"qa"` to `stages_completed`.
 4. Set `task.status = "done"`, `task.completed_at = now`.
-5. **Post-QA commands**: If the extension resolution result includes Post-QA commands, run them in the listed order:
-   - Every command tagged `[gate]` (the default for any command not configured with `auto: true`): present an approval gate (approval-gates skill) before running it. The gate names the command and states that it may have external effects (push, deploy, publish, posting comments). Wait for the user's explicit approval; if declined, skip it and note it in the summary.
+5. **Post-QA commands**: In unattended approver mode, show the **Approver Decisions Report** (`approval-gates` skill) first. If the extension resolution result includes Post-QA commands, run them in the listed order:
+   - Every command tagged `[gate]` (the default for any command not configured with `auto: true`): present an approval gate (approval-gates skill) before running it, in every approver mode, unattended included. The gate names the command and states that it may have external effects (push, deploy, publish, posting comments). Wait for the user's explicit approval; if declined, skip it and note it in the summary.
    - Only commands tagged `[auto]` run without a gate.
 6. Set `state.json`:
    ```json
@@ -60,7 +60,11 @@ No critical or major issues:
 
 ### If REQUEST_CHANGES
 
-Critical issues found:
+Critical issues found. Write the report's issues to `stages.qa.issues`.
+
+**Unattended approver mode**: follow **QA Retries** in the `approval-gates` skill instead of asking: re-run development with `QA revision <n>` (the `04-development.md` workflow, one agent per affected role) and then this command's Run Stage 5 again, up to `max_revisions`. Then Exhausted Revisions: a `critical` left blocks the task (show the blocker and the Approver Decisions Report, and stop); only `major`/`minor` left → record them in `stages.qa.unresolved_findings` and continue with **If APPROVE**.
+
+Otherwise:
 1. Set `stages.qa.status = "awaiting_approval"`.
 2. Present QA report to the user.
 3. Ask: "QA found critical issues. How would you like to proceed?"

@@ -143,7 +143,61 @@
           "enum": ["en", "es"],
           "default": "en",
           "description": "Language for all agent output and pipeline messages. en = English, es = Español"
+        },
+        "requirements_format": {
+          "type": "string",
+          "enum": ["req", "user-stories"],
+          "default": "req",
+          "description": "How Stage 1 writes functional requirements. req = REQ-NNN list (default); user-stories = US-NNN user stories with acceptance criteria. Non-functional requirements and constraints stay REQ-NNN in both formats."
         }
+      }
+    },
+    "approver": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional approver agent that reviews stage outputs before their gates. Missing, or enabled = false: the pipeline behaves exactly as without it. The architecture gate (design) can only be given to it in unattended mode.",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Turns the approver on for the gates listed in gates."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["advisory", "autonomous", "unattended"],
+          "default": "advisory",
+          "description": "advisory = the verdict is shown at a human gate and the human decides (planning gets a human gate while the approver reviews it). autonomous = APPROVE advances without asking; REQUEST_CHANGES re-runs the producing agent up to max_revisions times, then stops at a human gate. unattended = the approver also answers the clarifying questions, decides scope changes, may review the architecture, and QA failures re-run development; after max_revisions it continues with unresolved major/minor findings and stops only on a blocker. Post-QA commands tagged [gate] still ask the human."
+        },
+        "gates": {
+          "type": "array",
+          "description": "Gates the approver reviews. requirements (Stage 1) and planning (Stage 2) in any mode; design (Stage 3, architecture) only when mode = unattended.",
+          "uniqueItems": true,
+          "default": ["requirements", "planning"],
+          "items": {
+            "type": "string",
+            "enum": ["requirements", "planning", "design"],
+            "description": "requirements = requirements-approved gate; planning = plan-approved gate; design = architecture-approved gate (unattended only)."
+          }
+        },
+        "max_revisions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 0,
+          "description": "autonomous and unattended: how many revision runs a stage may get without a human (approver REQUEST_CHANGES; in unattended also QA REQUEST_CHANGES). Human change requests do not count. 0 = stop at the first REQUEST_CHANGES (autonomous only; unattended requires at least 1)."
+        }
+      },
+      "if": {
+        "properties": { "mode": { "const": "unattended" } },
+        "required": ["mode"]
+      },
+      "then": {
+        "required": ["max_revisions"],
+        "properties": { "max_revisions": { "minimum": 1 } }
+      },
+      "else": {
+        "properties": { "gates": { "items": { "enum": ["requirements", "planning"] } } }
       }
     },
     "extensions": {

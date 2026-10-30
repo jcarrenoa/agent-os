@@ -41,7 +41,7 @@ Arguments: $ARGUMENTS
 
 Stages: discovery, planning, design, development, qa
 Roles:  backend, frontend  (required for design and development)
-Agents: requirements-analyst, planner, architect, backend-developer, frontend-developer, qa-engineer
+Agents: requirements-analyst, planner, approver, architect, backend-developer, frontend-developer, qa-engineer
 ```
 
 ---
@@ -100,7 +100,7 @@ Add an entry to extensions. Supports `--agent` and `--global` flags.
 ### Steps
 
 1. Parse: `add [--agent <agent>] [--global] <name|path>`
-   - `--agent <agent>`: agent-level target. Valid agents: `requirements-analyst`, `planner`, `architect`, `backend-developer`, `frontend-developer`, `qa-engineer`.
+   - `--agent <agent>`: agent-level target. Valid agents: `requirements-analyst`, `planner`, `approver`, `architect`, `backend-developer`, `frontend-developer`, `qa-engineer`.
    - Without `--agent`: first positional arg is `<stage>[.<role>]`.
    - `--global`: write to `~/.agent-os/defaults.json` (create if missing) instead of `.agent-os/config.json`.
    - `--auto`: only valid for post-QA commands. Stores the command as `{ "name": "<command>", "auto": true }` so it runs without an approval gate. Without `--auto`, commands are stored as plain strings and always require approval.
@@ -138,7 +138,7 @@ Remove an entry. Supports `--agent` and `--global` flags.
 
 Set `mode` for a destination. Supports `--agent` and `--global`.
 
-Valid destinations: `architect`, `backend-developer`, `frontend-developer` (agents), `design`, `design.backend`, `design.frontend`, `development.backend`, `development.frontend` (stages/roles). `mode` is not applicable to discovery, planning, qa, `requirements-analyst`, or `planner`.
+Valid destinations: `architect`, `backend-developer`, `frontend-developer` (agents), `design`, `design.backend`, `design.frontend`, `development.backend`, `development.frontend` (stages/roles). `mode` is not applicable to discovery, planning, qa, `requirements-analyst`, `planner`, or `approver`.
 
 ### Steps
 

@@ -35,6 +35,8 @@ Agent OS — Status
 ─────────────────────────────────────────
 Project:  [project_name]
 Stack:    [frontend] + [backend]
+Approver: [off | advisory | autonomous (max_revisions N) | unattended (max_revisions N)] — gates: [requirements, planning, design | —]
+Requirements format: [REQ | user stories]
 
 Pipeline State
   Stage:   [current_stage]
@@ -44,7 +46,8 @@ Pipeline State
 [If stage_status = "awaiting_approval"]
   ⚠  PENDING APPROVAL: [gate name]
      [context from pending_approval]
-     Run `/agent-os:approve` to proceed.
+     Approver: [APPROVE | REQUEST_CHANGES (N blocker, N major, N minor) — omit when approver_verdict is null]
+     Run `/agent-os:review` to review it, or `/agent-os:approve` to proceed.
 
 [If stage_status = "blocked"]
   ✗  BLOCKED: [blocker description]
@@ -53,13 +56,16 @@ Pipeline State
 ─────────────────────────────────────────
 Active Task: [TASK-NNN] — [title]
 
-  Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started]
-  Planning:    [✓ | ⏳ | ⟳ | ○]
-  Design:      [✓ | ⏳ | ⟳ | ○]
-  Development: [✓ | ⏳ | ⟳ | ○]
-  QA:          [✓ | ⏳ | ⟳ | ○]
+  Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started | ✗ blocked] [approved by: human | approver] [approver: APPROVE | REQUEST_CHANGES, round N, N auto revisions, N change requests] [unresolved: IDs]
+  Planning:    [✓ | ⏳ | ⟳ | ○ | ✗] [approved by ...] [approver: ...] [unresolved: ...]
+  Design:      [✓ | ⏳ | ⟳ | ○ | ✗] [approved by: human | approver (unattended)] [approver: ...]
+  Development: [✓ | ⏳ | ⟳ | ○ | ✗]
+  QA:          [✓ | ⏳ | ⟳ | ○ | ✗] [QA retries: N] [unresolved: IDs]
 
-  Requirements: [N captured]
+  (Omit the "approved by", "approver", "unresolved" and "QA retries" parts when they do not apply.)
+  Approver decisions: [N — see `/agent-os:review`; omit when task.approver_decisions is empty]
+
+  Requirements: [N captured] [+ N user stories, N acceptance criteria — user-stories only]
   Subtasks:     [N total, N done]
   Decisions:    [N recorded]
   Files:        [N modified]
@@ -79,6 +85,7 @@ Decisions: [N total]
 Available Commands
 
   /agent-os:start "[description]"   ← New task (full pipeline)
+  /agent-os:review                  ← Approval console (gate, approver verdict, history)
   /agent-os:approve                 ← Approve pending gate
   /agent-os:rollback [stage]        ← Return to a previous stage
   /agent-os:discover "[description]" ← Run Stage 1 only

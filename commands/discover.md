@@ -1,7 +1,7 @@
 ---
 description: Run Stage 1 (Discovery & Requirements) for a task. Captures and structures requirements before any planning or implementation. Requires approval before planning can begin.
 argument-hint: "<task description>"
-allowed-tools: [Read, Write, Glob, Grep, Bash]
+allowed-tools: [Read, Write, Glob, Grep, Bash, AskUserQuestion]
 ---
 
 # Agent OS — Stage 1: Discovery
@@ -19,7 +19,7 @@ Task: $ARGUMENTS
    - If `current_stage = "discovery"` with `stage_status = "awaiting_approval"`: the stage is already done and awaiting approval. Show existing requirements and remind the user to run `/agent-os:approve`.
    - If `current_stage` is any other stage: tell the user which stage is active and offer to rollback.
 
-If creating a new task: create `TASK-NNN.json` and update `state.json`.
+If creating a new task: create `TASK-NNN.json`, record its git baseline (Recording the git baseline in the `state-management` skill) and update `state.json`.
 
 ## Run Stage 1
 
@@ -40,21 +40,30 @@ Spawn a `requirements-analyst` agent. Pass it:
 
 Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
-After the agent completes:
-1. Update `task.requirements` from the agent's output.
-2. Set `stages.discovery.status = "awaiting_approval"`, `completed_at = now`.
-3. Set `stages.discovery.output_summary` to a 1-2 sentence summary.
-4. Update `state.json` to `stage_status = "awaiting_approval"` with `pending_approval` filled.
+If the agent returned a `QUESTIONS` block: follow the **Clarifying Questions Protocol** of the workflow (AskUserQuestion, or the approver in unattended mode), record the answers in `open_questions`, and re-run the agent with the `Answers:` line. Never answer the questions yourself or let the agent assume them.
+
+When it returns the requirements:
+1. Record its output in the task file as described in the workflow's State Updates (step 2): `requirements_format`, `requirements`, `user_stories` (with user stories), `assumptions`, `out_of_scope`.
+2. Set `stages.discovery.output_summary` to a 1-2 sentence summary.
+
+## Approver Review
+
+Only when `config.approver.enabled` and `"requirements"` is in `config.approver.gates`: follow **Approver Review** in the `approval-gates` skill. In autonomous or unattended mode, an approver approval (`approved_by = "approver"`): tell the user, advance state to `planning / not_started`, suggest `/agent-os:plan` or `/agent-os:start`, and stop. If unattended mode blocked the stage: show the blocker and stop. Otherwise continue to Request Approval.
 
 ## Request Approval
 
+1. Set `stages.discovery.status = "awaiting_approval"`, `completed_at = now`.
+2. Update `state.json` to `stage_status = "awaiting_approval"` with `pending_approval` filled (including `approver_verdict`).
+
 Follow the approval-gates skill to present the gate.
 
-Show requirements to the user and ask for approval.
+Show the requirements (or user stories) to the user, with the approver verdict block if the approver reviewed them, and ask for approval.
 
 **Stop and wait.**
 
-When approved (user says "approve" or runs `/agent-os:approve`):
-- Record approval in task file.
+When approved (user says "approve", or runs `/agent-os:approve` or `/agent-os:review`):
+- Record the approval with `approved_by = "human"` (How to Record an Approval in the approval-gates skill).
 - Advance state to `planning / not_started`.
 - Suggest next step: `/agent-os:plan` or `/agent-os:start`.
+
+When the user requests changes: follow How to Handle Rejection or Change Requests in the approval-gates skill.

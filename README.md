@@ -13,7 +13,7 @@ Every task runs through a 5-stage pipeline:
 | Stage | Agent | Gate |
 |-------|-------|------|
 | 1. Discovery & Requirements | Requirements Analyst | ✓ Human approval |
-| 2. Analysis & Planning | Planner | Auto (or manual on scope change) |
+| 2. Analysis & Planning | Planner | Auto (or manual on scope change, or with the [approver](#approver) in advisory mode) |
 | 3. Design & Architecture | Architect | ✓ Human approval |
 | 4. Development | Backend Dev + Frontend Dev | Auto |
 | 5. Testing & QA | QA Engineer | ✓ Human approval if issues found |
@@ -62,6 +62,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:start "<task>"` | Run a task through the complete 5-stage pipeline. |
 | `/agent-os:status` | Show current pipeline state, active task, and pending approvals. |
 | `/agent-os:approve` | Approve a pending gate and advance to the next stage. |
+| `/agent-os:review` | Approval console: pending gate, approver verdict, history; approve, request changes or see the details. |
 | `/agent-os:rollback <stage>` | Roll back to a previous stage. |
 | `/agent-os:discover "<task>"` | Run Stage 1 (Discovery) only. |
 | `/agent-os:plan` | Run Stage 2 (Planning) only. |
@@ -86,6 +87,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | Backend Developer | Sonnet | Implements backend subtasks, adapts to detected stack |
 | Frontend Developer | Sonnet | Implements frontend subtasks, adapts to detected stack |
 | QA Engineer | Sonnet | Runs tests, verifies requirements, produces QA report |
+| Approver (optional) | Opus | Read-only review of the requirements and the plan; the architecture only in unattended mode. See [Approver](#approver) |
 
 ---
 
@@ -356,12 +358,106 @@ These files are tracked in git by default, giving your team full history and tra
 Agent OS requires human approval at two mandatory checkpoints:
 
 1. **After Discovery** — You confirm the requirements are complete and accurate before planning begins.
-2. **After Architecture Design** — You approve the architecture before any code is written.
+2. **After Architecture Design** — You approve the architecture before any code is written (the approver approves it only in [unattended mode](#unattended-mode)).
 
 Additional approvals are requested automatically when:
 - Critical QA issues are found
 - Planning detects a scope expansion
 - A destructive or irreversible operation is needed
+
+`/agent-os:review` is the approval console: it shows the pending gate (requirements, plan or architecture) with a summary and the paths of its files, the approver verdict when there is one, and the approval history of the task (stage, approved by human or approver, date, revisions). From there you can **Aprobar** (the same state change as `/agent-os:approve`), **Pedir cambios** (you write the changes and the producing agent is re-run with them and with the approver's findings), **Ver detalle** (the full requirements or user stories, plan, or ADRs) or **Cancelar**.
+
+---
+
+## Approver
+
+An optional agent (`approver`, Opus, read-only: Read, Glob, Grep) that reviews the requirements and the plan before their gates (and, only in [unattended mode](#unattended-mode), the architecture). It is **off by default**: without the `approver` key in `config.json`, or with `enabled: false`, the pipeline behaves exactly as without it.
+
+It starts with a clean context: the command gives it only file paths (task file, config, the stage workflow) and its `## Extensions` block, never the conversation or the other agent's report. It follows the same extension rules as every agent (Read its extensions first, no self-discovery, `EXTENSIONS APPLIED`).
+
+- **Requirements review**: completeness against your original request, ambiguity, testable acceptance criteria, INVEST for user stories, conflicts with `CLAUDE.md`, and whether the analyst's assumptions are reasonable.
+- **Plan review**: every requirement or story covered by at least one subtask, correct dependencies and role assignment (respecting `focus`), no out-of-scope subtasks, risks identified.
+- **Output**: `VERDICT: APPROVE | REQUEST_CHANGES` and findings with severity (`blocker`, `major`, `minor`), each with a concrete proposed change. Any `blocker` or `major` means `REQUEST_CHANGES`. Written in `output_language`.
+
+### Modes
+
+| Mode | APPROVE | REQUEST_CHANGES |
+|---|---|---|
+| `advisory` (default) | Shown at the human gate; you decide | Shown at the human gate; you decide (you can still approve) |
+| `autonomous` | The stage advances without asking, recorded as `approved_by: "approver"` | With `max_revisions > 0`, the producing agent is re-run with the findings, up to `max_revisions` times; then it stops at your gate. With `0`, it stops at your gate directly |
+| `unattended` | Same as `autonomous`, also for the architecture | Re-runs up to `max_revisions` (≥ 1); then continues with the `major`/`minor` findings left unresolved, or stops if a `blocker` is left. See [Unattended mode](#unattended-mode) |
+
+In `advisory`, the planning stage, which normally advances on its own, gets a human gate while the approver reviews it.
+
+Once you ask for changes at a gate ("Pedir cambios" or in the conversation), the next gate of that stage is yours in every mode: the approver reviews the new version, but it does not approve it for you. Your change requests never use up `max_revisions`.
+
+### The architecture gate
+
+The architecture gate decides how the code will be built and is the last checkpoint before anything is written, so it is decided by a person in `advisory` and `autonomous`: `config.schema.json` allows `design` in `gates` only when `mode` is `unattended`. Autonomous mode also never skips the planner's scope-change pause.
+
+### What is recorded
+
+Per stage in the task file:
+- `approved_by` (`human` | `approver`);
+- `review`, the latest approver review (`round`, verdict, date, findings), and `review_history` with the earlier rounds. Finding IDs carry their round (`R1-F-01`, `R2-F-01`), so a reference to a finding never changes meaning after a new review;
+- `auto_revisions`, the re-runs started by the approver (and, in unattended mode, by QA), compared with `max_revisions`;
+- `change_requests` (`CR-1`, `CR-2`...: what you asked to change, verbatim, with a copy of the findings you cited);
+- `unresolved_findings` (unattended mode only).
+
+The task also keeps `open_questions` (each clarifying question with its answer and `resolved_by`: `human`, `approver` or `default`) and `approver_decisions` (every decision the approver took instead of you). `state.json.pending_approval.approver_verdict` holds the verdict of the pending gate. `/agent-os:status` and `/agent-os:review` show them.
+
+### Clarifying questions
+
+The requirements analyst never answers its own questions. When something is ambiguous it returns a `QUESTIONS` block; the command asks you with a multiple-choice question (the analyst's proposal first), stores your answers in `open_questions`, and re-runs the analyst, which reads them from the task file. At most two rounds. In unattended mode the approver answers instead, and anything it cannot decide (who the users are, money, legal or security policy, deleting data) blocks the task.
+
+### Configuration
+
+Choose it in `/agent-os:setup` (Desactivado / Advisory / Autonomous / Unattended), change it with `/agent-os:setup --reconfigure`, or edit `.agent-os/config.json`:
+
+```json
+"approver": {
+  "enabled": true,
+  "mode": "advisory",
+  "gates": ["requirements", "planning"],
+  "max_revisions": 0
+}
+```
+
+`gates` accepts `requirements` and `planning`, plus `design` only with `"mode": "unattended"`. `max_revisions` (0–5) applies to `autonomous` and `unattended` (where it must be at least 1). The approver can have its own extensions: `/agent-os:skills add --agent approver <name|path>`.
+
+### Unattended mode
+
+> ⚠ **Nothing asks you for confirmation except post-QA commands tagged `[gate]`.** An agent decides in your place, including the changes that otherwise always need a person: data model changes, migrations on existing data, authentication, external integrations. Use it only on tasks and repositories where you accept that, and read the decisions report at the end.
+
+```json
+"approver": {
+  "enabled": true,
+  "mode": "unattended",
+  "gates": ["requirements", "planning", "design"],
+  "max_revisions": 2
+}
+```
+
+What the approver does in this mode:
+- **Clarifying questions**: it answers them (`resolved_by: "approver"`). A question it cannot decide blocks the task.
+- **Requirements, plan and architecture**: it reviews and approves them. The architecture review is stricter: an unmitigated mandatory case (data model, migration, security, external integration) is at least `major`, and one that risks data loss or a security hole is a `blocker`.
+- **Scope change**: it keeps the original scope unless the extra work is needed for a `must` requirement; in that case the task is blocked, because expanding the scope is your call.
+- **QA failures**: development is re-run with the QA issues, up to `max_revisions` times.
+- **After `max_revisions`**: with only `major`/`minor` left, the pipeline continues and records them in `unresolved_findings`; with any `blocker` (or a QA `critical`), the stage is `blocked` and it stops. It never advances with a blocker.
+- **Post-QA commands**: `[auto]` commands run; `[gate]` commands still ask you, because they can have external effects (push, deploy, publish, comments). To let a local-only command (for example, a local commit) run without asking, mark it `auto: true`.
+
+At the end (or when it blocks) you get the **Decisiones del approver** report: every gate, question, scope decision and retry it decided, with where to find the details in the task file. `/agent-os:review` shows the same report in its history.
+
+If you ask for changes yourself at any point, that stage's next gate goes back to you.
+
+### Requirements format: user stories
+
+`preferences.requirements_format` in `config.json` (asked in setup):
+
+- `"req"` (default): functional requirements as `REQ-001 [must]: ...`.
+- `"user-stories"`: functional requirements as stories, `US-001 [must]: As a <role>, I want <capability>, so that <benefit>.`, each with testable acceptance criteria (`US-001-AC1: Given ..., when ..., then ...`). Non-functional requirements and constraints stay as `REQ-NNN` sections.
+
+The planner traces each subtask to `REQ-NNN`, `US-NNN` or `US-NNN-ACn`, and QA reports coverage per story and per acceptance criterion. Without the key, everything works as with `"req"`.
 
 ---
 

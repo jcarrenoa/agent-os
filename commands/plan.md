@@ -34,18 +34,30 @@ Spawn a `planner` agent. Pass it:
 Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
 After the agent completes:
-1. Update `task.subtasks` from the agent's output.
-2. Set `stages.planning.status = "done"`, `completed_at = now`.
-3. Set `stages.planning.output_summary` to a brief summary of the plan.
-4. Add `"planning"` to `stages_completed` in state.json.
-5. Update `state.json.current_stage = "design"`, `stage_status = "not_started"`.
+1. Record `task.subtasks` and `task.plan` as described in the workflow's State Updates (step 2).
+2. Set `stages.planning.completed_at = now` and `stages.planning.output_summary` to a brief summary of the plan.
 
 ## Scope Change Check
 
 If the planner identified that implementation requires scope beyond the approved requirements:
-- **Stop** and flag it to the user.
+- Unattended approver mode: the approver decides (Scope Change in the `approval-gates` skill). `ORIGINAL_SCOPE` continues; `EXPAND` blocks the stage: show the blocker and stop.
+- Otherwise: **stop** and flag it to the user.
 - Ask: "The planner identified that this task requires [new scope]. Do you want to (1) expand scope and re-run discovery, or (2) proceed with original scope only?"
 - **Wait for answer** before updating state.
+
+## Approver Review
+
+Only when `config.approver.enabled` and `"planning"` is in `config.approver.gates`: follow **Approver Review** in the `approval-gates` skill.
+- **advisory**, **autonomous** stopped at a human gate, or a stage with a human change request: set `stages.planning.status = "awaiting_approval"`, `state.json.stage_status = "awaiting_approval"` and `pending_approval = { gate: "plan-approved", ..., next_stage: "design", approver_verdict }`. Present the gate with the plan summary and the approver verdict block, then **stop and wait** for `/agent-os:approve`, `/agent-os:review`, or an explicit approval in the conversation (recorded with `approved_by = "human"`). Change requests follow How to Handle Rejection or Change Requests.
+- **autonomous** or **unattended** `APPROVE` (or unattended Exhausted Revisions with only major/minor left): record the approval with `approved_by = "approver"` and continue to Complete Stage.
+- **unattended** blocked: show the blocker and stop.
+
+## Complete Stage
+
+Without approver review, or once the plan is approved:
+1. Set `stages.planning.status = "done"`.
+2. Add `"planning"` to `stages_completed` in state.json.
+3. Update `state.json.current_stage = "design"`, `stage_status = "not_started"`.
 
 ## Report
 
@@ -61,6 +73,7 @@ Subtasks: [N]
 
 Complexity: [Simple|Medium|Complex]
 Risks: [N identified]
+Approver: [APPROVE (approved by approver) | approved with unresolved R<n>-F-NN | — when not reviewed]
 
 Next: Stage 3 — Design/Architecture
   Run `/agent-os:design` or `/agent-os:start`

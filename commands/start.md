@@ -1,7 +1,7 @@
 ---
 description: Start a new task and run it through the complete 5-stage pipeline (Discovery → Planning → Design → Development → QA). Pauses at approval gates and waits for your confirmation before advancing.
 argument-hint: "<task description>"
-allowed-tools: [Bash, Read, Write, Glob, Grep]
+allowed-tools: [Bash, Read, Write, Glob, Grep, AskUserQuestion]
 ---
 
 # Agent OS — Full Pipeline
@@ -22,11 +22,15 @@ After confirming `.agent-os/config.json` exists, read `preferences.output_langua
    - Stop.
 3. If no task description was provided: ask the user to describe the task and wait for their response.
 
+## Unattended Mode
+
+When `config.approver.enabled` and `config.approver.mode = "unattended"`, tell the user once at the start: "Modo unattended: el approver decide las preguntas, los gates [list config.approver.gates] y los reintentos de QA. Solo te preguntaré por los commands post-QA marcados [gate]." Then run every stage without stopping, except when a stage becomes `blocked` (Exhausted Revisions in the `approval-gates` skill): show the blocker and the Approver Decisions Report, and stop.
+
 ## Step 1: Create Task
 
 Read `.agent-os/tasks/` to determine the next task ID (TASK-001, TASK-002, etc.).
 
-Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill).
+Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill), then record its git baseline (Recording the git baseline in the same skill).
 
 Update `.agent-os/state.json`:
 ```json
@@ -56,29 +60,32 @@ Spawn a `requirements-analyst` agent with:
 
 Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
-After the agent returns, record its output in the task file:
-- `stages.discovery.status = "in_progress"` → update to `"awaiting_approval"` after agent completes
-- `stages.discovery.output_summary` = brief summary of requirements captured
-- `requirements` array = populate from agent output
+If the agent returned a `QUESTIONS` block: follow the **Clarifying Questions Protocol** of the workflow (AskUserQuestion, or the approver in unattended mode), record the answers in `open_questions`, and re-run the agent with the `Answers:` line. Never answer the questions yourself or let the agent assume them.
+
+When it returns the requirements, record its output in the task file as described in the workflow's State Updates (step 2): `requirements_format`, `requirements`, `user_stories` (with user stories), `assumptions`, `out_of_scope`, and `stages.discovery.output_summary`.
+
+**Approver Review** (only when `config.approver.enabled` and `"requirements"` is in `config.approver.gates`): follow **Approver Review** in the `approval-gates` skill. In autonomous or unattended mode, an `APPROVE` records the approval with `approved_by = "approver"` and continues to Stage 2 without asking; a `REQUEST_CHANGES` re-runs the requirements-analyst up to `max_revisions` times, then stops at the human gate below (autonomous) or follows Exhausted Revisions (unattended).
 
 **Approval Gate: Requirements**
 
-Check `config.json.preferences.require_requirements_approval`.
-If true (default): follow the approval-gates skill to request approval.
+Request it when the approver did not approve the stage and: `config.json.preferences.require_requirements_approval` is true (default), or the approver reviewed this stage in advisory mode, or autonomous mode stopped at a human gate, or the stage has a human change request. Follow the approval-gates skill.
 
-Present the requirements to the user and ask:
+Present the requirements (or user stories) to the user and ask:
 
 ```
 ─────────────────────────────────────────
 APPROVAL REQUIRED: Requirements
 ─────────────────────────────────────────
-[List requirements captured]
+[List requirements or user stories captured]
+
+[Approver verdict block, if the approver reviewed this stage]
 
 Reply "approve" to continue to Planning, or describe any changes needed.
+`/agent-os:review` shows the details and the history.
 ─────────────────────────────────────────
 ```
 
-**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.) or requests changes and you apply them: record approval in the task file and state.json, then immediately continue to Stage 2 without stopping.
+**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.): record the approval with `approved_by = "human"` (How to Record an Approval in the approval-gates skill), then immediately continue to Stage 2 without stopping. When the user requests changes: follow How to Handle Rejection or Change Requests, then present this gate again.
 
 ---
 
@@ -95,13 +102,16 @@ Spawn a `planner` agent with:
 
 Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
-After the agent returns:
-- `stages.planning.status = "done"`
-- `stages.planning.output_summary` = brief summary
-- `subtasks` array = populate from planner output
+After the agent returns, record `subtasks` and `plan` in the task file as described in the workflow's State Updates (step 2), plus `stages.planning.output_summary`. If the planner flagged a scope change, follow the workflow's Scope Change Protocol first (in unattended mode the approver decides it: Scope Change in the `approval-gates` skill).
 
-Add `"planning"` to `stages_completed` in state.json.
-Update `current_stage = "design"`.
+**Approver Review** (only when `config.approver.enabled` and `"planning"` is in `config.approver.gates`): follow **Approver Review** in the `approval-gates` skill.
+- **advisory**, **autonomous** stopped at a human gate, or a stage with a human change request: request the `plan-approved` gate with the plan summary (subtasks per role, complexity, risks) and the approver verdict block. Wait for the user's reply as in the requirements gate; on approval, record it with `approved_by = "human"`.
+- **autonomous** or **unattended** `APPROVE` (or unattended Exhausted Revisions with only major/minor left): record the approval with `approved_by = "approver"` and continue without asking.
+
+Without approver review, or once approved:
+- `stages.planning.status = "done"`
+- Add `"planning"` to `stages_completed` in state.json.
+- Update `current_stage = "design"`.
 
 ---
 
@@ -123,9 +133,11 @@ After the agent returns:
 - `stages.design.output_summary` = architecture summary
 - `decisions` array = list of created DEC-NNN IDs
 
+**Unattended architecture review** (only when `config.approver.mode = "unattended"`, `enabled`, and `"design"` is in `config.approver.gates`): follow **Approver Review** in the `approval-gates` skill with target `design` (producing agent: `architect`). On approval, continue to Stage 4 without asking. A stage with a human change request still goes to the gate below.
+
 **Approval Gate: Architecture**
 
-This gate is always required (cannot be skipped).
+This gate is always required (cannot be skipped). It is decided by a human in every mode except the unattended review above.
 
 Present the architecture to the user:
 
@@ -142,7 +154,7 @@ Reply "approve" to continue to Development, or describe any changes needed.
 ─────────────────────────────────────────
 ```
 
-**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.) or requests changes and you apply them: record approval, then immediately continue to Stage 4 without stopping.
+**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.): record the approval with `approved_by = "human"`, then immediately continue to Stage 4 without stopping. When the user requests changes: follow How to Handle Rejection or Change Requests in the approval-gates skill, then present this gate again.
 
 ---
 
@@ -196,12 +208,14 @@ After the agent returns:
   - `stages.qa.status = "done"`
   - Add `"qa"` to `stages_completed`
   - Set `task.status = "done"`, `task.completed_at = now`
-  - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs; only commands tagged `[auto]` (configured with `auto: true`) run without one
+  - In unattended mode, show the **Approver Decisions Report** (`approval-gates` skill) first, so the user sees what was decided before any command question.
+  - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs, in every approver mode, unattended included; only commands tagged `[auto]` (configured with `auto: true`) run without one
   - Set `state.json: current_stage = "idle", active_task_id = null`
   - Show completion summary
 
 - If recommendation is `REQUEST_CHANGES`:
-  - Present QA findings to user
+  - Unattended mode: follow **QA Retries** in the `approval-gates` skill (re-run development with the issues up to `max_revisions`, then Exhausted Revisions). If it ends blocked, show the Approver Decisions Report and the blocker, and stop.
+  - Otherwise: present QA findings to user
   - Ask: "Critical issues were found. Do you want to (1) fix them now, (2) defer and mark done anyway, or (3) cancel?"
   - **Wait for user response** and act accordingly.
 

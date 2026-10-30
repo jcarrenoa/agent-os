@@ -1,5 +1,5 @@
 ---
-description: Run Stage 3 (Design & Architecture) for the active task. Designs components, data models, API contracts, and records ADRs. Always requires human approval before development begins.
+description: Run Stage 3 (Design & Architecture) for the active task. Designs components, data models, API contracts, and records ADRs. Requires approval before development begins (human, or the approver in unattended mode).
 allowed-tools: [Read, Write, Glob, Grep]
 ---
 
@@ -40,9 +40,13 @@ After the agent completes:
 4. Set `stages.design.output_summary` with the architecture summary.
 5. Update state.json to `stage_status = "awaiting_approval"` with `pending_approval` filled.
 
+## Unattended Architecture Review
+
+Only when `config.approver.enabled`, `config.approver.mode = "unattended"` and `"design"` is in `config.approver.gates`, and the stage has no human change request: follow **Approver Review** in the `approval-gates` skill with target `design` (producing agent: `architect`, revisions update the ADRs). If it approves (`approved_by = "approver"`): tell the user, advance to `development/not_started`, suggest `/agent-os:develop`, and stop. If it blocks: show the blocker and stop.
+
 ## Request Approval — Architecture
 
-This gate is always required. Follow the approval-gates skill.
+This gate is always required. It is decided by a human in every mode except the Unattended Architecture Review above. Follow the approval-gates skill.
 
 Present the architecture summary, component list, data model changes, and ADRs to the user.
 
@@ -59,10 +63,11 @@ ADRs recorded: [DEC-NNN: title, ...]
 This approval is required before development begins.
 
 Run `/agent-os:approve` to proceed to Development,
+`/agent-os:review` to see the ADRs and the history,
 or describe changes needed.
 ─────────────────────────────────────────
 ```
 
 **Stop and wait.**
 
-When approved: record approval, advance to `development/not_started`, suggest `/agent-os:develop`.
+When approved (in the conversation, `/agent-os:approve` or `/agent-os:review`): record the approval with `approved_by = "human"`, advance to `development/not_started`, suggest `/agent-os:develop`. Change requests follow How to Handle Rejection or Change Requests in the approval-gates skill.

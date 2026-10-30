@@ -60,7 +60,7 @@ Your prompt gives you file paths, not their content. Read each of these files yo
 
 Read:
 - `.agent-os/config.json` — tech stack and project type
-- `.agent-os/tasks/TASK-NNN.json` — requirements from Stage 1
+- `.agent-os/tasks/TASK-NNN.json` — requirements from Stage 1 (`requirements`, plus `user_stories` when `requirements_format = "user-stories"`), `assumptions` and `out_of_scope`
 - `CLAUDE.md` — existing conventions and constraints
 
 Identify what already exists in the codebase that is relevant to this task. Use Grep and Glob to find:
@@ -78,13 +78,15 @@ Before creating subtasks, read `config.focus`:
 Create a flat, ordered list of implementation subtasks. Each subtask must:
 - Be completable by a single agent in a single session
 - Have a clear, verifiable completion criterion
-- Reference the requirements it fulfills
+- Reference the requirements it fulfills: `REQ-NNN` IDs, and with `requirements_format = "user-stories"` the `US-NNN` story IDs (or `US-NNN-ACn` when a subtask covers only some acceptance criteria)
+
+Every `must` requirement and every `must` story (all of its acceptance criteria) must be referenced by at least one subtask.
 
 Subtask format:
 ```
 SUB-01: [title]
   Assigned to: [backend-developer | frontend-developer | architect | qa-engineer]
-  Requirements: [REQ-001, REQ-003]
+  Requirements: [REQ-001, US-002, US-003-AC1]
   Depends on: [SUB-XX, ...]
   Criterion: [how to verify this is done]
 ```
@@ -135,7 +137,7 @@ Return this format:
 
 SUB-01: [title]
   Assigned to: [role]
-  Requirements: [REQ-NNN, ...]
+  Requirements: [REQ-NNN | US-NNN | US-NNN-ACn, ...]
   Depends on: none
   Criterion: [verifiable condition]
 
@@ -155,6 +157,20 @@ SUB-02: [title]
 
 ### Architect Involvement Required
 [yes|no] — [reason if yes]
+```
+
+## Revision Runs
+
+If your prompt says `Revision <n>`, the previous plan is in the task file (`subtasks`, `plan`). The line names what to address, and only that:
+- `stages.planning.review (round <r>)`: every finding of that review, IDs `R<r>-F-NN`.
+- `change request CR-<k>`: that entry of `stages.planning.change_requests`, including the findings copied in its `cited_findings` (use those copies, not the current `review`, which may be a later round).
+
+Apply each proposed change, or state in one line why you did not. If a request is already satisfied by the current plan, say so in its note. Then return the complete updated plan, not only the changes, followed by:
+
+```
+### Revision Notes
+- R1-F-01: [applied | not applied — reason | already covered — where]
+- CR-1: [applied | not applied — reason | already covered — where]
 ```
 
 ## Your Rules

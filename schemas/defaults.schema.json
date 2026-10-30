@@ -132,10 +132,11 @@
       "additionalProperties": false,
       "description": "Per-agent skill and doc overrides, applied after stage and role entries; agent mode wins. Keys must be plugin agent names.",
       "propertyNames": {
-        "enum": ["requirements-analyst", "planner", "architect", "backend-developer", "frontend-developer", "qa-engineer"]
+        "enum": ["requirements-analyst", "planner", "approver", "architect", "backend-developer", "frontend-developer", "qa-engineer"]
       },
       "properties": {
         "requirements-analyst": { "$ref": "#/definitions/agentExtension" },
+        "approver": { "$ref": "#/definitions/agentExtension" },
         "planner": { "$ref": "#/definitions/agentExtension" },
         "architect": { "$ref": "#/definitions/agentExtension" },
         "backend-developer": { "$ref": "#/definitions/agentExtension" },
