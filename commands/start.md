@@ -56,29 +56,30 @@ Spawn a `requirements-analyst` agent with:
 
 Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
-After the agent returns, record its output in the task file:
-- `stages.discovery.status = "in_progress"` → update to `"awaiting_approval"` after agent completes
-- `stages.discovery.output_summary` = brief summary of requirements captured
-- `requirements` array = populate from agent output
+After the agent returns, record its output in the task file as described in the workflow's State Updates (step 2): `requirements_format`, `requirements`, `user_stories` (with user stories), `assumptions`, `out_of_scope`, `open_questions`, and `stages.discovery.output_summary`.
+
+**Approver Review** (only when `config.approver.enabled` and `"requirements"` is in `config.approver.gates`): follow **Approver Review** in the `approval-gates` skill. In autonomous mode, an `APPROVE` records the approval with `approved_by = "approver"` and continues to Stage 2 without asking; a `REQUEST_CHANGES` re-runs the requirements-analyst up to `max_revisions` times before stopping at the human gate below.
 
 **Approval Gate: Requirements**
 
-Check `config.json.preferences.require_requirements_approval`.
-If true (default): follow the approval-gates skill to request approval.
+Request it when `config.json.preferences.require_requirements_approval` is true (default), or when the approver reviewed this stage in advisory mode, or when autonomous mode stopped at a human gate. Follow the approval-gates skill.
 
-Present the requirements to the user and ask:
+Present the requirements (or user stories) to the user and ask:
 
 ```
 ─────────────────────────────────────────
 APPROVAL REQUIRED: Requirements
 ─────────────────────────────────────────
-[List requirements captured]
+[List requirements or user stories captured]
+
+[Approver verdict block, if the approver reviewed this stage]
 
 Reply "approve" to continue to Planning, or describe any changes needed.
+`/agent-os:review` shows the details and the history.
 ─────────────────────────────────────────
 ```
 
-**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.) or requests changes and you apply them: record approval in the task file and state.json, then immediately continue to Stage 2 without stopping.
+**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.): record the approval with `approved_by = "human"` (How to Record an Approval in the approval-gates skill), then immediately continue to Stage 2 without stopping. When the user requests changes: follow How to Handle Rejection or Change Requests, then present this gate again.
 
 ---
 
@@ -95,13 +96,16 @@ Spawn a `planner` agent with:
 
 Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
-After the agent returns:
-- `stages.planning.status = "done"`
-- `stages.planning.output_summary` = brief summary
-- `subtasks` array = populate from planner output
+After the agent returns, record `subtasks` and `plan` in the task file as described in the workflow's State Updates (step 2), plus `stages.planning.output_summary`. If the planner flagged a scope change, follow the workflow's Scope Change Protocol first.
 
-Add `"planning"` to `stages_completed` in state.json.
-Update `current_stage = "design"`.
+**Approver Review** (only when `config.approver.enabled` and `"planning"` is in `config.approver.gates`): follow **Approver Review** in the `approval-gates` skill.
+- **advisory**, or **autonomous** stopped at a human gate: request the `plan-approved` gate with the plan summary (subtasks per role, complexity, risks) and the approver verdict block. Wait for the user's reply as in the requirements gate; on approval, record it with `approved_by = "human"`.
+- **autonomous** `APPROVE`: record the approval with `approved_by = "approver"` and continue without asking.
+
+Without approver review, or once approved:
+- `stages.planning.status = "done"`
+- Add `"planning"` to `stages_completed` in state.json.
+- Update `current_stage = "design"`.
 
 ---
 
@@ -125,7 +129,7 @@ After the agent returns:
 
 **Approval Gate: Architecture**
 
-This gate is always required (cannot be skipped).
+This gate is always required (cannot be skipped) and is always decided by a human: the approver never reviews or approves it, in any mode.
 
 Present the architecture to the user:
 
@@ -142,7 +146,7 @@ Reply "approve" to continue to Development, or describe any changes needed.
 ─────────────────────────────────────────
 ```
 
-**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.) or requests changes and you apply them: record approval, then immediately continue to Stage 4 without stopping.
+**Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.): record the approval with `approved_by = "human"`, then immediately continue to Stage 4 without stopping. When the user requests changes: follow How to Handle Rejection or Change Requests in the approval-gates skill, then present this gate again.
 
 ---
 

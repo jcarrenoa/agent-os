@@ -200,7 +200,7 @@
           "additionalProperties": false,
           "description": "Skills added to agents.<agent>.skills in ~/.agent-os/defaults.json, in this order, when the entry is installed.",
           "propertyNames": {
-            "enum": ["requirements-analyst", "planner", "architect", "backend-developer", "frontend-developer", "qa-engineer"]
+            "enum": ["requirements-analyst", "planner", "approver", "architect", "backend-developer", "frontend-developer", "qa-engineer"]
           },
           "patternProperties": {
             "^[a-z-]+$": {

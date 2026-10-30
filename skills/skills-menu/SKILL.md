@@ -1,7 +1,7 @@
 ---
 name: skills-menu
 description: Interactive menu for configuring agent-os extensions (skills, docs, agents, commands). Invoked by /agent-os:skills with no arguments and by /agent-os:setup for the extension configuration step. Guides the user through selecting a destination (by agent or by stage/role), selecting elements, setting mode, and choosing the save level.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Skills Menu Protocol
@@ -61,7 +61,7 @@ AskUserQuestion:
   question: "¿A qué grupo de agentes quieres asignar?"
   header: "Grupo"
   options:
-    - "Análisis — requirements-analyst, planner"
+    - "Análisis — requirements-analyst, planner, approver"
     - "Diseño — architect"
     - "Desarrollo — backend-developer, frontend-developer"
     - "QA — qa-engineer"
@@ -82,6 +82,7 @@ AskUserQuestion:
   options:
     - "requirements-analyst — Captura de requisitos (Stage 1)"
     - "planner — Planificación de subtasks (Stage 2)"
+    - "approver — Revisa requisitos y plan (opcional, config.approver)"
   multiSelect: false
 ```
 

@@ -8,6 +8,8 @@ allowed-tools: [Read, Write]
 
 You are approving a pending pipeline gate and advancing to the next stage.
 
+For a view of the pending gate with the approver verdict, the history, and actions to approve, request changes or see the details, use `/agent-os:review`.
+
 ## Step 1: Read Current State
 
 Read `.agent-os/state.json`.
@@ -37,30 +39,15 @@ Stage:     [current_stage] → [next_stage]
 ─────────────────────────────────────────
 ```
 
+If `pending_approval.approver_verdict` is not null, read the task file and add the approver verdict block (Presenting the Approver Verdict in the `approval-gates` skill) for `stages.[current_stage].review`. The approver's verdict is informative: this command approves even with `REQUEST_CHANGES`.
+
 If arguments were provided (`$ARGUMENTS`), record them as approval notes.
 
 ## Step 3: Record Approval
 
 Read `.agent-os/tasks/[active_task_id].json`.
 
-Update the current stage record:
-```json
-"stages": {
-  "[current_stage]": {
-    "status": "done",
-    "approved_at": "[now ISO timestamp]"
-  }
-}
-```
-
-Write the updated task file.
-
-Update `.agent-os/state.json`:
-- Add `current_stage` to `stages_completed`
-- Set `current_stage = [next_stage from pending_approval]`
-- Set `stage_status = "not_started"`
-- Set `pending_approval = null`
-- Set `last_updated = [now]`
+Follow **How to Record an Approval** in the `approval-gates` skill with `approved_by = "human"`: the stage record gets `status = "done"`, `approved_at = now`, `approved_by = "human"`; state.json adds `current_stage` to `stages_completed`, sets `current_stage = [next_stage from pending_approval]`, `stage_status = "not_started"`, `pending_approval = null` and `last_updated = now`. `/agent-os:review` uses the same steps.
 
 ## Step 4: Advance Pipeline
 

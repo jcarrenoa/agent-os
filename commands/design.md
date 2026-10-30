@@ -42,7 +42,7 @@ After the agent completes:
 
 ## Request Approval — Architecture
 
-This gate is always required. Follow the approval-gates skill.
+This gate is always required and always decided by a human: the approver never reviews or approves it, in any mode. Follow the approval-gates skill.
 
 Present the architecture summary, component list, data model changes, and ADRs to the user.
 
@@ -59,10 +59,11 @@ ADRs recorded: [DEC-NNN: title, ...]
 This approval is required before development begins.
 
 Run `/agent-os:approve` to proceed to Development,
+`/agent-os:review` to see the ADRs and the history,
 or describe changes needed.
 ─────────────────────────────────────────
 ```
 
 **Stop and wait.**
 
-When approved: record approval, advance to `development/not_started`, suggest `/agent-os:develop`.
+When approved (in the conversation, `/agent-os:approve` or `/agent-os:review`): record the approval with `approved_by = "human"`, advance to `development/not_started`, suggest `/agent-os:develop`. Change requests follow How to Handle Rejection or Change Requests in the approval-gates skill.

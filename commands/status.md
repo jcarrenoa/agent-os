@@ -35,6 +35,8 @@ Agent OS — Status
 ─────────────────────────────────────────
 Project:  [project_name]
 Stack:    [frontend] + [backend]
+Approver: [off | advisory | autonomous (max_revisions N)] — gates: [requirements, planning | —]
+Requirements format: [REQ | user stories]
 
 Pipeline State
   Stage:   [current_stage]
@@ -44,7 +46,8 @@ Pipeline State
 [If stage_status = "awaiting_approval"]
   ⚠  PENDING APPROVAL: [gate name]
      [context from pending_approval]
-     Run `/agent-os:approve` to proceed.
+     Approver: [APPROVE | REQUEST_CHANGES (N blocker, N major, N minor) — omit when approver_verdict is null]
+     Run `/agent-os:review` to review it, or `/agent-os:approve` to proceed.
 
 [If stage_status = "blocked"]
   ✗  BLOCKED: [blocker description]
@@ -53,13 +56,15 @@ Pipeline State
 ─────────────────────────────────────────
 Active Task: [TASK-NNN] — [title]
 
-  Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started]
-  Planning:    [✓ | ⏳ | ⟳ | ○]
-  Design:      [✓ | ⏳ | ⟳ | ○]
+  Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started] [approved by: human | approver] [approver: APPROVE | REQUEST_CHANGES, N revisions]
+  Planning:    [✓ | ⏳ | ⟳ | ○] [approved by ...] [approver: ...]
+  Design:      [✓ | ⏳ | ⟳ | ○] [approved by: human]
   Development: [✓ | ⏳ | ⟳ | ○]
   QA:          [✓ | ⏳ | ⟳ | ○]
 
-  Requirements: [N captured]
+  (Omit the "approved by" and "approver" parts when the stage has no approval or review.)
+
+  Requirements: [N captured] [+ N user stories, N acceptance criteria — user-stories only]
   Subtasks:     [N total, N done]
   Decisions:    [N recorded]
   Files:        [N modified]
@@ -79,6 +84,7 @@ Decisions: [N total]
 Available Commands
 
   /agent-os:start "[description]"   ← New task (full pipeline)
+  /agent-os:review                  ← Approval console (gate, approver verdict, history)
   /agent-os:approve                 ← Approve pending gate
   /agent-os:rollback [stage]        ← Return to a previous stage
   /agent-os:discover "[description]" ← Run Stage 1 only

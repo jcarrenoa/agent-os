@@ -13,7 +13,7 @@ Every task runs through a 5-stage pipeline:
 | Stage | Agent | Gate |
 |-------|-------|------|
 | 1. Discovery & Requirements | Requirements Analyst | ✓ Human approval |
-| 2. Analysis & Planning | Planner | Auto (or manual on scope change) |
+| 2. Analysis & Planning | Planner | Auto (or manual on scope change, or with the [approver](#approver) in advisory mode) |
 | 3. Design & Architecture | Architect | ✓ Human approval |
 | 4. Development | Backend Dev + Frontend Dev | Auto |
 | 5. Testing & QA | QA Engineer | ✓ Human approval if issues found |
@@ -62,6 +62,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:start "<task>"` | Run a task through the complete 5-stage pipeline. |
 | `/agent-os:status` | Show current pipeline state, active task, and pending approvals. |
 | `/agent-os:approve` | Approve a pending gate and advance to the next stage. |
+| `/agent-os:review` | Approval console: pending gate, approver verdict, history; approve, request changes or see the details. |
 | `/agent-os:rollback <stage>` | Roll back to a previous stage. |
 | `/agent-os:discover "<task>"` | Run Stage 1 (Discovery) only. |
 | `/agent-os:plan` | Run Stage 2 (Planning) only. |
@@ -86,6 +87,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | Backend Developer | Sonnet | Implements backend subtasks, adapts to detected stack |
 | Frontend Developer | Sonnet | Implements frontend subtasks, adapts to detected stack |
 | QA Engineer | Sonnet | Runs tests, verifies requirements, produces QA report |
+| Approver (optional) | Opus | Read-only review of the requirements and the plan; never the architecture. See [Approver](#approver) |
 
 ---
 
@@ -362,6 +364,61 @@ Additional approvals are requested automatically when:
 - Critical QA issues are found
 - Planning detects a scope expansion
 - A destructive or irreversible operation is needed
+
+`/agent-os:review` is the approval console: it shows the pending gate (requirements, plan or architecture) with a summary and the paths of its files, the approver verdict when there is one, and the approval history of the task (stage, approved by human or approver, date, revisions). From there you can **Aprobar** (the same state change as `/agent-os:approve`), **Pedir cambios** (you write the changes and the producing agent is re-run with them and with the approver's findings), **Ver detalle** (the full requirements or user stories, plan, or ADRs) or **Cancelar**.
+
+---
+
+## Approver
+
+An optional agent (`approver`, Opus, read-only: Read, Glob, Grep) that reviews the requirements and the plan before their gates. It is **off by default**: without the `approver` key in `config.json`, or with `enabled: false`, the pipeline behaves exactly as without it.
+
+It starts with a clean context: the command gives it only file paths (task file, config, the stage workflow) and its `## Extensions` block, never the conversation or the other agent's report. It follows the same extension rules as every agent (Read its extensions first, no self-discovery, `EXTENSIONS APPLIED`).
+
+- **Requirements review**: completeness against your original request, ambiguity, testable acceptance criteria, INVEST for user stories, conflicts with `CLAUDE.md`, and whether the analyst's assumptions are reasonable.
+- **Plan review**: every requirement or story covered by at least one subtask, correct dependencies and role assignment (respecting `focus`), no out-of-scope subtasks, risks identified.
+- **Output**: `VERDICT: APPROVE | REQUEST_CHANGES` and findings with severity (`blocker`, `major`, `minor`), each with a concrete proposed change. Any `blocker` or `major` means `REQUEST_CHANGES`. Written in `output_language`.
+
+### Modes
+
+| Mode | APPROVE | REQUEST_CHANGES |
+|---|---|---|
+| `advisory` (default) | Shown at the human gate; you decide | Shown at the human gate; you decide (you can still approve) |
+| `autonomous` | The stage advances without asking, recorded as `approved_by: "approver"` | With `max_revisions > 0`, the producing agent is re-run with the findings, up to `max_revisions` times; then it stops at your gate. With `0`, it stops at your gate directly |
+
+In `advisory`, the planning stage, which normally advances on its own, gets a human gate while the approver reviews it.
+
+### Why the architecture is excluded
+
+The architecture gate decides how the code will be built and is the last checkpoint before anything is written, so it is always decided by a person. The approver never reviews or approves it in any mode, and `config.schema.json` does not allow `architecture` in `gates`. Autonomous mode also never skips the planner's scope-change pause.
+
+### What is recorded
+
+Per stage in the task file: `approved_by` (`human` | `approver`), `review` (verdict, date, findings, revisions) and `change_requests` (what you asked to change at the gate). `state.json.pending_approval.approver_verdict` holds the verdict of the pending gate. `/agent-os:status` and `/agent-os:review` show them.
+
+### Configuration
+
+Choose it in `/agent-os:setup` (Desactivado / Advisory / Autonomous), change it with `/agent-os:setup --reconfigure`, or edit `.agent-os/config.json`:
+
+```json
+"approver": {
+  "enabled": true,
+  "mode": "advisory",
+  "gates": ["requirements", "planning"],
+  "max_revisions": 0
+}
+```
+
+`gates` accepts only `requirements` and `planning`. `max_revisions` (0–5) applies only to `autonomous`. The approver can have its own extensions: `/agent-os:skills add --agent approver <name|path>`.
+
+### Requirements format: user stories
+
+`preferences.requirements_format` in `config.json` (asked in setup):
+
+- `"req"` (default): functional requirements as `REQ-001 [must]: ...`.
+- `"user-stories"`: functional requirements as stories, `US-001 [must]: As a <role>, I want <capability>, so that <benefit>.`, each with testable acceptance criteria (`US-001-AC1: Given ..., when ..., then ...`). Non-functional requirements and constraints stay as `REQ-NNN` sections.
+
+The planner traces each subtask to `REQ-NNN`, `US-NNN` or `US-NNN-ACn`, and QA reports coverage per story and per acceptance criterion. Without the key, everything works as with `"req"`.
 
 ---
 

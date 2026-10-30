@@ -7,12 +7,12 @@ Transform approved requirements into a concrete, sequenced implementation plan w
 ## Entry Conditions
 
 - `stages.discovery.status = "done"` in the task file.
-- `task.requirements` contains at least one `must` requirement.
+- `task.requirements` contains at least one `must` requirement, or `task.user_stories` contains at least one `must` story.
 - `state.json.current_stage = "planning"` and `stage_status = "in_progress"`.
 
 ## Exit Conditions (all must be true before marking stage done)
 
-- [ ] Every approved requirement is addressed by at least one subtask.
+- [ ] Every approved requirement (`REQ-NNN`) and, with user stories, every story (`US-NNN`, all its acceptance criteria) is addressed by at least one subtask.
 - [ ] Every subtask has an assigned agent role.
 - [ ] Every subtask has a verifiable completion criterion.
 - [ ] Dependency order is defined.
@@ -98,8 +98,15 @@ ARCHITECT INVOLVEMENT REQUIRED: [yes|no]
 
 1. When starting: `task.stages.planning.status = "in_progress"`, `started_at = now`.
 2. When agent completes:
-   - Populate `task.subtasks` from agent output.
-   - `task.stages.planning.status = "done"`, `completed_at = now`.
-   - `task.stages.planning.output_summary = "[N subtasks: N backend, N frontend]"`.
+   - Populate `task.subtasks` from agent output (`id`, `title`, `assigned_to`, `status = "pending"`, `depends_on`, `requirements`, `criterion`).
+   - Populate `task.plan`: `complexity` (lowercase), `risks[{ description, mitigation }]`, `external_dependencies`, `scope_change` (or null).
+   - `task.stages.planning.completed_at = now`, `task.stages.planning.output_summary = "[N subtasks: N backend, N frontend]"`.
+   - On a revision run, replace `task.subtasks` and `task.plan` with the new version.
+3. Scope Change Protocol first (above), if the planner flagged one.
+4. Approver review (only when `config.approver.enabled` and `"planning"` is in `config.approver.gates`): follow **Approver Review** in the `approval-gates` skill.
+   - **advisory**, or **autonomous** stopped at a human gate: `task.stages.planning.status = "awaiting_approval"`, `state.json.stage_status = "awaiting_approval"`, `state.json.pending_approval = { gate: "plan-approved", context: "...", next_stage: "design", approver_verdict: [verdict] }`. Wait for the approval (How to Record an Approval).
+   - **autonomous** `APPROVE`: record the approval with `approved_by = "approver"`.
+5. Without approver review (or once approved):
+   - `task.stages.planning.status = "done"` (with `approved_at` and `approved_by` only if a gate was approved).
    - Add `"planning"` to `stages_completed` in state.json.
    - `state.json.current_stage = "design"`, `stage_status = "not_started"`.

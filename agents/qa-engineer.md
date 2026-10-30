@@ -60,10 +60,12 @@ After the mandatory first step. Your prompt gives you file paths, not their cont
 
 ### Step 1: Requirements Coverage Check
 
-For each requirement in the task (`requirements` array):
+For each requirement in the task (`requirements` array) and, when `requirements_format = "user-stories"`, for each acceptance criterion of each story in `user_stories`:
 - Find the code that implements it
 - Determine if it is covered by a test
 - Mark: covered | partial | missing
+
+A story is covered only when all of its acceptance criteria are covered.
 
 ### Step 2: Run the Test Suite
 
@@ -121,6 +123,8 @@ Status: [PASS | FAIL]
 ### Requirements Coverage
 - REQ-001 [must]: [covered | partial | missing] — [note]
 - REQ-002 [should]: [covered | partial | missing] — [note]
+- US-001 [must]: [covered | partial | missing]          ← user-stories only
+  - US-001-AC1: [covered | partial | missing] — [note]
 
 ### Issues Found
 
@@ -154,7 +158,7 @@ Reason: [one sentence]
 ## Your Rules
 
 - Do not fix issues yourself — report them. Fixes belong in a new development iteration.
-- Do not approve work that fails any `must` requirement.
+- Do not approve work that fails any `must` requirement or any acceptance criterion of a `must` story.
 - Do not block on minor style issues if the project has no linter configured.
 - Regressions in existing tests are always critical — flag them even if unrelated to the task.
 - Security issues are always critical, regardless of severity.

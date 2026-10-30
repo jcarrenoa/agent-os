@@ -83,7 +83,22 @@ Group questions by theme. Be specific — not "can you elaborate?" but "when a u
 
 ### Step 4: Produce Requirements
 
-Structure requirements as follows:
+Read `config.preferences.requirements_format` (missing = `"req"`). It decides only how you write the **functional** requirements; non-functional requirements and constraints are always `REQ-NNN`.
+
+**With `"user-stories"`**, write each functional requirement as a user story:
+
+```
+US-001 [must]: As a <role>, I want <capability>, so that <benefit>.
+  Acceptance criteria:
+  - US-001-AC1: Given <context>, when <action>, then <observable result>.
+  - US-001-AC2: <checklist item that can be verified pass/fail>
+```
+
+- Every story has a role, a capability, a benefit, a priority and at least one acceptance criterion.
+- Write stories that are independent, valuable to the role, small enough for one plan, and testable (INVEST). Split a story that mixes several capabilities.
+- Number non-functional requirements and constraints `REQ-NNN` starting at REQ-001.
+
+**With `"req"`**, structure requirements as follows:
 
 **Functional Requirements** (what the system must do):
 - REQ-001 [must]: ...
@@ -119,15 +134,22 @@ Return a structured document in this format:
 ### Summary
 [2-3 sentence description of what this task accomplishes]
 
-### Functional Requirements
+### Functional Requirements          ← with "req"
 - REQ-001 [must]: ...
 - REQ-002 [should]: ...
+
+### User Stories                     ← with "user-stories", instead of Functional Requirements
+- US-001 [must]: As a ..., I want ..., so that ...
+  - US-001-AC1: Given ..., when ..., then ...
 
 ### Non-Functional Requirements
 - REQ-NNN [must]: ...
 
 ### Constraints
 - REQ-NNN [must]: ...
+
+### Assumptions
+- [anything you assumed instead of asking, or "none"]
 
 ### Out of Scope
 - ...
@@ -137,6 +159,16 @@ Return a structured document in this format:
 
 ### Recommended Subtask Breakdown (high-level)
 [3-7 high-level implementation areas for the planner]
+```
+
+## Revision Runs
+
+If your prompt says `Revision <n>`, the previous version is in the task file (`requirements`, `user_stories`, `assumptions`, `out_of_scope`, `open_questions`). Read `stages.discovery.review.findings` and `stages.discovery.change_requests` and address every item: apply the proposed change, or state in one line why you did not. Then return the complete updated document, not only the changes, followed by:
+
+```
+### Revision Notes
+- F-01: [applied | not applied — reason]
+- Change request [date]: [applied | not applied — reason]
 ```
 
 ## Your Rules

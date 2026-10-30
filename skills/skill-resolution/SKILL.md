@@ -1,7 +1,7 @@
 ---
 name: skill-resolution
 description: Resolves which skills, docs, agents, and commands are active for a given pipeline stage, role, and agent, resolves the agent-os plugin root, defines what goes in each agent prompt, and verifies that agents applied their extensions. Use this skill before spawning any agent to determine what extensions are configured, and before reading any file bundled with the plugin (workflows, schemas, plugin skills). Called by every stage command (discover, plan, design, develop, qa) in the agent-os pipeline.
-version: 3.2.0
+version: 3.3.0
 ---
 
 # Skill Resolution Protocol
@@ -26,7 +26,7 @@ The calling command resolves `PLUGIN_ROOT` once per run and passes absolute path
 The calling command provides:
 - **stage**: `discovery` | `planning` | `design` | `development` | `qa`
 - **role** (optional): `backend` | `frontend` — provide when applicable. For the architect, see [Architect: Multiple Roles](#architect-multiple-roles).
-- **agent** (required): the exact agent name being spawned (`requirements-analyst`, `planner`, `architect`, `backend-developer`, `frontend-developer`, `qa-engineer`)
+- **agent** (required): the exact agent name being spawned (`requirements-analyst`, `planner`, `approver`, `architect`, `backend-developer`, `frontend-developer`, `qa-engineer`). For the `approver`, **stage** is the stage under review (`discovery` or `planning`), so it receives that stage's entries plus its own `agents.approver` entries.
 - **workspace root**: current working directory (where `.agent-os/` lives)
 
 ## Step 1: Read Configuration Sources
@@ -245,8 +245,10 @@ The agent must read its inputs from disk, so the prompt carries **references, no
 - The `## Extensions` block exactly as produced in Step 4.
 - Paths: `.agent-os/config.json`, the task file, the ADR files that apply (`.agent-os/decisions/DEC-NNN.json`), and `working_directory` when applicable.
 - Development only: the subtask IDs assigned to this run, in execution order, each with its title on one line.
-- Discovery only: the user's task description, verbatim.
-- Decisions the agent cannot find in any file (e.g. changes the user requested at a gate), stated briefly.
+- Discovery only: the user's task description, verbatim (not for the `approver`: it reads `description` from the task file).
+- Approver only: `Review target: requirements | planning` and the absolute path of the workflow of the stage under review.
+- Revision runs only: the revision line from the `approval-gates` skill (Revision Runs). Approver findings and the user's change requests are recorded in the task file and read from there.
+- Decisions the agent cannot find in any file, stated briefly.
 
 Never copy into the prompt the content of the design, ADRs, requirements, subtask details beyond their titles, config values, rules from any `CLAUDE.md`, or the content of skills and docs. A prompt that already contains them gives the agent a reason to skip its files and its extensions.
 

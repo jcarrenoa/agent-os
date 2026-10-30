@@ -143,6 +143,49 @@
           "enum": ["en", "es"],
           "default": "en",
           "description": "Language for all agent output and pipeline messages. en = English, es = Español"
+        },
+        "requirements_format": {
+          "type": "string",
+          "enum": ["req", "user-stories"],
+          "default": "req",
+          "description": "How Stage 1 writes functional requirements. req = REQ-NNN list (default); user-stories = US-NNN user stories with acceptance criteria. Non-functional requirements and constraints stay REQ-NNN in both formats."
+        }
+      }
+    },
+    "approver": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional approver agent that reviews the requirements and the plan before their gates. Missing, or enabled = false: the pipeline behaves exactly as without it. It can never review or approve the architecture gate, which is always human.",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Turns the approver on for the gates listed in gates."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["advisory", "autonomous"],
+          "default": "advisory",
+          "description": "advisory = the verdict is shown at a human gate and the human decides (planning gets a human gate while the approver reviews it). autonomous = APPROVE advances without asking; REQUEST_CHANGES re-runs the producing agent up to max_revisions times, then stops at a human gate."
+        },
+        "gates": {
+          "type": "array",
+          "description": "Gates the approver reviews. Only requirements (Stage 1) and planning (Stage 2); the architecture gate is not allowed.",
+          "uniqueItems": true,
+          "default": ["requirements", "planning"],
+          "items": {
+            "type": "string",
+            "enum": ["requirements", "planning"],
+            "description": "requirements = requirements-approved gate; planning = plan-approved gate."
+          }
+        },
+        "max_revisions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 0,
+          "description": "autonomous only: how many times the producing agent is re-run with the approver's findings before stopping at a human gate. 0 = stop at the first REQUEST_CHANGES."
         }
       }
     },

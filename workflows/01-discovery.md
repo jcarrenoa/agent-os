@@ -12,7 +12,7 @@ Understand what needs to be built before any planning or implementation begins. 
 
 ## Exit Conditions (all must be true before requesting approval)
 
-- [ ] At least one functional requirement (`must`) is captured.
+- [ ] At least one functional requirement (`must`) is captured: a `REQ-NNN` with `requirements_format = "req"`, or a `US-NNN` story with at least one acceptance criterion with `"user-stories"`.
 - [ ] At least one non-functional requirement is captured (or explicitly noted as none).
 - [ ] Out-of-scope items are explicitly listed.
 - [ ] No open ambiguities remain (all clarifying questions answered).
@@ -50,16 +50,23 @@ REQUIREMENTS OUTPUT
 Task: [title]
 Summary: [2-3 sentences]
 
-FUNCTIONAL REQUIREMENTS
+FUNCTIONAL REQUIREMENTS                  (requirements_format = "req", the default)
   REQ-001 [must]: [description]
   REQ-002 [should]: [description]
   REQ-003 [could]: [description]
+
+USER STORIES                             (requirements_format = "user-stories", instead of FUNCTIONAL REQUIREMENTS)
+  US-001 [must]: As a [role], I want [capability], so that [benefit].
+    US-001-AC1: Given [context], when [action], then [result].
 
 NON-FUNCTIONAL REQUIREMENTS
   REQ-004 [must]: [description]
 
 CONSTRAINTS
   REQ-005 [must]: [description]
+
+ASSUMPTIONS
+  - [assumption made instead of asking, or "none"]
 
 OUT OF SCOPE
   - [explicit out-of-scope item]
@@ -75,15 +82,20 @@ RECOMMENDED SUBTASK AREAS (for planner)
 During this stage, the command updates:
 
 1. When starting: `task.stages.discovery.status = "in_progress"`, `started_at = now`.
-2. When agent completes: populate `task.requirements` from agent output.
-3. When requesting approval:
+2. When agent completes:
+   - `task.requirements_format` = `config.preferences.requirements_format` (missing = `"req"`).
+   - Populate `task.requirements` (functional with `"req"`; non-functional and constraints always) and, with `"user-stories"`, `task.user_stories` (`id`, `role`, `capability`, `benefit`, `priority`, `acceptance_criteria[{ id, text }]`).
+   - Populate `task.assumptions`, `task.out_of_scope` and `task.open_questions`.
+   - On a revision run, replace these fields with the new version.
+3. Approver review (only when `config.approver.enabled` and `"requirements"` is in `config.approver.gates`): follow **Approver Review** in the `approval-gates` skill. It writes `task.stages.discovery.review`, and in autonomous mode may approve (step 5 with `approved_by = "approver"`) or re-run the agent.
+4. When requesting approval:
    - `task.stages.discovery.status = "awaiting_approval"`, `completed_at = now`
-   - `task.stages.discovery.output_summary = "[N requirements captured. Scope: ...]"`
+   - `task.stages.discovery.output_summary = "[N requirements / N stories captured. Scope: ...]"`
    - `state.json.stage_status = "awaiting_approval"`
-   - `state.json.pending_approval = { gate: "requirements-approved", context: "...", next_stage: "planning" }`
+   - `state.json.pending_approval = { gate: "requirements-approved", context: "...", next_stage: "planning", approver_verdict: [verdict or null] }`
 
-4. When approved:
-   - `task.stages.discovery.status = "done"`, `approved_at = now`
+5. When approved:
+   - `task.stages.discovery.status = "done"`, `approved_at = now`, `approved_by = "human" | "approver"`
    - `state.json.stages_completed` gets `"discovery"` appended
    - `state.json.current_stage = "planning"`, `stage_status = "not_started"`
    - `state.json.pending_approval = null`

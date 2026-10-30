@@ -187,6 +187,27 @@ Then use the **AskUserQuestion tool** to collect configuration. For `multi-repo`
 
 **Wait for the user's selections before continuing.**
 
+## Step 2.1: Review Options
+
+Ask both questions in one AskUserQuestion call, in the language chosen in Step 2. With `--reconfigure`, mark the current values with "(actual)" instead of "(Recomendado)".
+
+1. Header: "Approver" — "¿Activar el approver, un agente que revisa los requisitos y el plan antes de sus gates?"
+   - "Desactivado (Recomendado)" (description: "Todo funciona como hasta ahora; tú apruebas los gates.")
+   - "Advisory" (description: "Revisa requisitos y plan y te muestra su veredicto; tú decides siempre. El plan pasa a tener gate.")
+   - "Autonomous" (description: "Si aprueba, avanza sin preguntarte; si pide cambios, se detiene y te lo muestra. La arquitectura siempre la apruebas tú.")
+
+2. Header: "Requisitos" — "¿En qué formato se escriben los requisitos funcionales?"
+   - "REQ (Recomendado)" (description: "Lista REQ-001 [must]: ... como hasta ahora.")
+   - "Historias de usuario" (description: "US-001: Como <rol> quiero <capacidad> para <beneficio>, con criterios de aceptación.")
+
+Map the answers:
+- "Desactivado" → no `approver` key in config.json (with `--reconfigure`, set `"enabled": false` if the key existed, keeping its other values).
+- "Advisory" → `"approver": { "enabled": true, "mode": "advisory", "gates": ["requirements", "planning"], "max_revisions": 0 }`.
+- "Autonomous" → `"approver": { "enabled": true, "mode": "autonomous", "gates": ["requirements", "planning"], "max_revisions": 0 }`. With `max_revisions = 0`, a `REQUEST_CHANGES` stops at your gate; raising it lets the producing agent retry with the findings (see the README).
+- "REQ" → `preferences.requirements_format = "req"`; "Historias de usuario" → `"user-stories"`.
+
+The architecture gate cannot be given to the approver: it is not an option here and `config.schema.json` rejects it.
+
 ## Step 2.5: Configure Extensions (optional)
 
 Run this step after receiving the user's answers from Step 2 but before writing any files.
@@ -266,8 +287,10 @@ After confirmation, create these files and directories:
     "track_state_in_git": [true if user said yes],
     "require_architecture_approval": true,
     "require_requirements_approval": true,
-    "output_language": "[en or es, default en]"
-  }
+    "output_language": "[en or es, default en]",
+    "requirements_format": "[req | user-stories, from Step 2.1]"
+  },
+  "approver": "[only if Step 2.1 enabled it: { enabled, mode, gates, max_revisions }]"
 }
 ```
 
@@ -354,10 +377,21 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | Lenguaje | [tech_stack.language.frontend or —] |
 | Tests | `[test command]` or — |
 
+### 🛡️ Revisión
+| | |
+|---|---|
+| Approver | [Desactivado · or Advisory / Autonomous (max_revisions N)] |
+| Gates del approver | [requisitos, plan · or —] |
+| Gate de arquitectura | Siempre humano |
+| Formato de requisitos | [REQ · or Historias de usuario] |
+
 ### ▶️ Próximos pasos
 | Comando | Para qué |
 |---|---|
 | `/agent-os:start "describe tu primera tarea"` | Pipeline completo de 5 etapas |
 | `/agent-os:discover "describe tu tarea"` | Empezar solo con Discovery |
 | `/agent-os:status` | Ver el estado actual |
+| `/agent-os:review` | Consola de aprobaciones (gate pendiente, veredicto del approver, historial) |
 ```
+
+To change these options later: `/agent-os:setup --reconfigure`, or edit `approver` and `preferences.requirements_format` in `.agent-os/config.json` (README → Approver).
