@@ -120,7 +120,7 @@ Only when `tracker.mode` is `create` or `both` and the task has no `task.externa
 
 After the post-QA commands have run, if `task.commits` has entries not yet commented (no `comment_commits` entry in `sync_log` for them) and the task has a tracker issue:
 
-1. Draft, in `output_language`, one comment for the parent issue: per repository, the branch, then per commit the short hash, the subject and 1–3 lines of what it does, written from the titles and criteria of the subtasks in its `subtasks`. Nothing else: no code, no file lists, no secrets.
+1. Draft, in `output_language`, one comment for the parent issue: per repository (grouped by the `repo` value of `task.commits`, the repo path), the branch, then per commit the short hash, the subject and 1–3 lines of what it does, written from the titles and criteria of the subtasks in its `subtasks`. Nothing else: no code, no file lists, no secrets.
 2. In create mode, also one comment per created sub-task with only the commits whose `subtasks` include it.
 3. One gate for all the comments (Write Gates). On approval: post them and log each one.
 

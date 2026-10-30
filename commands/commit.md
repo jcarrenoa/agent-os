@@ -15,7 +15,7 @@ Never use `--no-verify`, `--amend`, `--no-gpg-sign`, `git stash`, `git reset --h
 1. Read `.agent-os/config.json`. If it does not exist: tell the user to run `/agent-os:setup` first, and stop.
 2. Read `.agent-os/state.json` → `active_task_id`, then `.agent-os/tasks/<id>.json`. If there is no active task, use the most recent task file with `status = "done"` and say so in the report. If there is none, stop and say so.
 3. Repos:
-   - `multi-repo`: each path in `config.workspace_paths` (key = role, e.g. `backend`), relative to the workspace root.
+   - `multi-repo`: each value of `config.workspace_paths`, a path relative to the workspace root (e.g. `reach-backend`). Its key is the repo's role (`backend`, `frontend`); the repo itself is always named by its path.
    - `single` or `monorepo`: one repo, the workspace root (key `"."`). In a `monorepo`, list every subtask in the body.
 4. Conventions of each repo: the fields of `config.git`, overridden field by field by `config.git.repos.<repo path>`. Missing fields take these defaults:
 
@@ -82,10 +82,10 @@ For each repo, run every git command as `git -C <repo> ...`:
 Read the task file again and set `commits` to the entries of earlier runs (keep those whose `hash` differs) plus one per commit created now:
 
 ```json
-{ "repo": "backend", "branch": "feature/VR-91-expand-contact-group-apis", "hash": "a1b2c3d", "subject": "VR-91 | feat: Expand contact and group APIs", "files": ["src/Contacts/ContactController.cs"], "subtasks": ["SUB-01", "SUB-02"] }
+{ "repo": "reach-backend", "branch": "feature/VR-91-expand-contact-group-apis", "hash": "a1b2c3d", "subject": "VR-91 | feat: Expand contact and group APIs", "files": ["src/Contacts/ContactController.cs"], "subtasks": ["SUB-01", "SUB-02"] }
 ```
 
-`repo` is the repo path (`"."` for the root), `hash` the short hash (`rev-parse --short HEAD`), `files` the committed paths (`show --name-only --format= HEAD`). Change no other field. The tracker's Comment Commits (`tracker-sync` skill) reads this list.
+`repo` is the repo path, the same value as the `git_baseline` key (`"reach-backend"`; `"."` for the root), never the role, `hash` the short hash (`rev-parse --short HEAD`), `files` the committed paths (`show --name-only --format= HEAD`). Change no other field. The tracker's Comment Commits (`tracker-sync` skill) reads this list.
 
 ## Step 4: Report
 
@@ -95,8 +95,8 @@ In `preferences.output_language`:
 ### 📦 Commits por repo
 | Repo | Rama | Commit | Asunto | Archivos | Nota |
 |---|---|---|---|---|---|
-| backend | feature/VR-91-expand-contact-group-apis | a1b2c3d | VR-91 \| feat: Expand contact and group APIs | 6 | — |
-| frontend | — | — | — | 0 | sin cambios |
+| reach-backend | feature/VR-91-expand-contact-group-apis | a1b2c3d | VR-91 \| feat: Expand contact and group APIs | 6 | — |
+| reach-frontend | — | — | — | 0 | sin cambios |
 
 Nada se ha subido al remoto. Para publicar: `git -C <repo> push -u origin <rama>`.
 ```
