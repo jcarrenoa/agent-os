@@ -1,7 +1,7 @@
 ---
 description: Approve a pending approval gate and advance the pipeline to the next stage. Use this when the pipeline is paused at an "awaiting_approval" gate.
 argument-hint: [notes]
-allowed-tools: [Read, Write]
+allowed-tools: [Read, Write, AskUserQuestion]
 ---
 
 # Agent OS Approve

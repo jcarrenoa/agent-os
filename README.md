@@ -59,7 +59,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | Command | Description |
 |---------|-------------|
 | `/agent-os:setup` | Initialize agent-os for this project. Detects stack, offers to connect external skills. |
-| `/agent-os:start "<task>"` | Run a task through the complete 5-stage pipeline. |
+| `/agent-os:start "<task>"` | Run a task through the complete 5-stage pipeline. With a tracker in pull mode, `/agent-os:start VR-123` (or the issue URL) starts from that issue. |
 | `/agent-os:status` | Show current pipeline state, active task, and pending approvals. |
 | `/agent-os:approve` | Approve a pending gate and advance to the next stage. |
 | `/agent-os:review` | Approval console: pending gate, approver verdict, history; approve, request changes or see the details. |
@@ -74,6 +74,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:skills remove <stage> <name\|path>` | Remove an extension from a stage. |
 | `/agent-os:skills mode <stage>.<role> extend\|replace` | Set whether the plugin default (tech-adaptation) is added for a role. |
 | `/agent-os:extensions [status\|install\|uninstall\|update]` | Check or install the recommended extensions from the catalog, after approving the exact commands. |
+| `/agent-os:tracker [setup\|map\|pick\|sync\|off]` | Jira / Plane integration over MCP: connect it, re-map the board columns, pick an issue, retry failed syncs. See [Tracker](#tracker). |
 
 ---
 
@@ -458,6 +459,90 @@ If you ask for changes yourself at any point, that stage's next gate goes back t
 - `"user-stories"`: functional requirements as stories, `US-001 [must]: As a <role>, I want <capability>, so that <benefit>.`, each with testable acceptance criteria (`US-001-AC1: Given ..., when ..., then ...`). Non-functional requirements and constraints stay as `REQ-NNN` sections.
 
 The planner traces each subtask to `REQ-NNN`, `US-NNN` or `US-NNN-ACn`, and QA reports coverage per story and per acceptance criterion. Without the key, everything works as with `"req"`.
+
+---
+
+## Tracker
+
+Optional integration with **Jira Cloud** or **Plane**, configured in `/agent-os:setup` (Step 2.2) or later with `/agent-os:tracker setup`. Without the `tracker` key in `config.json`, nothing changes.
+
+Only the orchestrating command talks to the tracker (the `tracker-sync` skill), never a subagent. The connection is the MCP server you register in Claude Code: agent-os never stores or sees a token. A direct REST connection is not available in this version.
+
+### Connecting the MCP server
+
+| Provider | Server | Add it |
+|---|---|---|
+| Jira | Atlassian Rovo MCP server (remote, OAuth) | `claude mcp add --transport http atlassian <URL from Atlassian's Rovo MCP Server docs>`, then `/mcp` to sign in |
+| Plane | `makeplane/plane-mcp-server` (hosted or local) | Hosted: `claude mcp add --transport http plane https://mcp.plane.so/http/mcp`, then `/mcp` to sign in. Local / self-hosted: run it with `uvx` as its README describes, with your API key in its environment (never in `.agent-os/`) |
+
+The server name you choose is stored in `tracker.mcp.server`; agent-os finds the tools by that prefix and tells you if one it needs is missing. Approve the MCP tools in Claude Code's permission prompts, or allow them in your settings.
+
+### Modes
+
+- `pull`: start from an existing issue. `/agent-os:start VR-123` (or its URL) reads the summary, description and acceptance criteria verbatim as the task description, and keeps the issue's existing sub-tasks as reference for the planner. `/agent-os:tracker pick` (or `/agent-os:start` without arguments) lists the issues in your intake column and lets you choose.
+- `create`: agent-os creates the parent issue (`Story` by default) with the approved stories or requirements, and one sub-task per planned subtask (`SUB-NN: title`, role as a label or component).
+- `both`: either, per task.
+
+### Route of action
+
+In setup (and with `/agent-os:tracker map`) agent-os reads the project's real statuses and proposes which one each pipeline event moves the issue to. You confirm or change every row:
+
+| Event | When | Typical column |
+|---|---|---|
+| `intake` | Where `pick` looks (no move) | To Do |
+| `start` | Discovery starts | In Progress |
+| `development` | Development starts (created sub-tasks: when their developer run starts) | In Progress / In Development |
+| `qa` | QA starts | QA / Testing |
+| `done_pipeline` | QA approves | Code Review (the column **before** Done: the PR is still missing) |
+| `blocked` | A stage is blocked | Blocked, or none |
+
+An event without a column moves nothing. In Jira the move uses the issue's available transitions; if the target status is not reachable from the current one, agent-os skips it and records the error. Done is set only if you map `done_pipeline` to it. The Atlassian MCP tools do not expose the board's column layout, so the analysis uses the statuses found in the project's issues and their transitions; you can type a status that was not found.
+
+### What is written, and when you are asked
+
+| Write | Approval |
+|---|---|
+| Moving the issue (and created sub-tasks) along the route | None: the route you confirmed is the consent. Every move is logged and shown in the stage summary |
+| Creating the parent issue, creating the sub-tasks | Always asked, in every mode |
+| The commits comment | Always asked, in every mode |
+
+In unattended approver mode, creates and comments are queued and asked together at the end of the run. Nothing else is ever written: no field edits, assignees, deletions or links.
+
+**Commits comment**: after the post-QA commands, if `task.commits` has entries (written by a commit command such as a user `commit-per-repo`), agent-os drafts one comment on the issue (and, in create mode, one per sub-task with its own commits): per repository, the branch, and per commit the short hash, the subject and 1–3 lines of what it does. Nothing else is commented.
+
+### Errors never block
+
+A tracker failure (server not connected, transition not reachable, network error) is recorded in `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries them (moving to the status of the task's current event) and asks for any pending writes. Every write is in `task.external.sync_log` and in the completion report.
+
+### Configuration example
+
+```json
+"tracker": {
+  "provider": "jira",
+  "connection": "mcp",
+  "mcp": { "server": "atlassian" },
+  "mode": "both",
+  "jira": {
+    "site_url": "https://acme.atlassian.net",
+    "cloud_id": "…",
+    "project_key": "VR",
+    "parent_type": "Story",
+    "subtask_type": "Sub-task",
+    "role_field": "label"
+  },
+  "pick_assigned_to_me": true,
+  "status_route": {
+    "intake": { "status": "To Do" },
+    "start": { "status": "In Progress" },
+    "development": { "status": "In Progress" },
+    "qa": { "status": "QA" },
+    "done_pipeline": { "status": "Code Review" },
+    "blocked": null
+  }
+}
+```
+
+For Plane, replace `jira` with `"plane": { "workspace_slug", "project_id", "project_identifier", "base_url" }` and give each route entry its state `id`.
 
 ---
 

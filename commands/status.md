@@ -37,6 +37,7 @@ Project:  [project_name]
 Stack:    [frontend] + [backend]
 Approver: [off | advisory | autonomous (max_revisions N) | unattended (max_revisions N)] — gates: [requirements, planning, design | —]
 Requirements format: [REQ | user stories]
+Tracker:  [none | Jira VR (MCP, mode both) | Plane REACH (MCP, mode pull)]
 
 Pipeline State
   Stage:   [current_stage]
@@ -55,6 +56,7 @@ Pipeline State
 [If active task exists]
 ─────────────────────────────────────────
 Active Task: [TASK-NNN] — [title]
+  Issue: [KEY (url) — status, N sub-tasks · N sync errors (/agent-os:tracker sync) · omit without task.external]
 
   Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started | ✗ blocked] [approved by: human | approver] [approver: APPROVE | REQUEST_CHANGES, round N, N auto revisions, N change requests] [unresolved: IDs]
   Planning:    [✓ | ⏳ | ⟳ | ○ | ✗] [approved by ...] [approver: ...] [unresolved: ...]
@@ -86,6 +88,7 @@ Available Commands
 
   /agent-os:start "[description]"   ← New task (full pipeline)
   /agent-os:review                  ← Approval console (gate, approver verdict, history)
+  /agent-os:tracker [pick|sync|map]  ← Tracker issue link, route of action, retries
   /agent-os:approve                 ← Approve pending gate
   /agent-os:rollback [stage]        ← Return to a previous stage
   /agent-os:discover "[description]" ← Run Stage 1 only

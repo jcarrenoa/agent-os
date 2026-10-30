@@ -60,7 +60,7 @@ Your prompt gives you file paths, not their content. Read each of these files yo
 
 Read:
 - `.agent-os/config.json` — tech stack and project type
-- `.agent-os/tasks/TASK-NNN.json` — requirements from Stage 1 (`requirements`, plus `user_stories` when `requirements_format = "user-stories"`), `assumptions` and `out_of_scope`
+- `.agent-os/tasks/TASK-NNN.json` — requirements from Stage 1 (`requirements`, plus `user_stories` when `requirements_format = "user-stories"`), `assumptions` and `out_of_scope`; when the task came from a tracker issue, also `external.existing_subtasks` (sub-tasks the issue already has: cite their keys in your subtask titles when a subtask matches one; never plan changes to the tracker)
 - `CLAUDE.md` — existing conventions and constraints
 
 Identify what already exists in the codebase that is relevant to this task. Use Grep and Glob to find:

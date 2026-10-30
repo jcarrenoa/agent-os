@@ -1,6 +1,6 @@
 ---
 description: Start a new task and run it through the complete 5-stage pipeline (Discovery → Planning → Design → Development → QA). Pauses at approval gates and waits for your confirmation before advancing.
-argument-hint: "<task description>"
+argument-hint: "<task description | issue key or URL>"
 allowed-tools: [Bash, Read, Write, Glob, Grep, AskUserQuestion]
 ---
 
@@ -20,7 +20,17 @@ After confirming `.agent-os/config.json` exists, read `preferences.output_langua
 2. Read `.agent-os/state.json`. If `current_stage` is not `"idle"` and `stage_status` is not `"done"`:
    - Tell the user: "There is an active task ([active_task_id]) in stage [current_stage] with status [stage_status]. Complete or cancel it before starting a new one. Use `/agent-os:status` to view the current state."
    - Stop.
-3. If no task description was provided: ask the user to describe the task and wait for their response.
+3. If no task description was provided: when `config.tracker.mode` is `pull` or `both`, run **Pick** of the `tracker-sync` skill; otherwise ask the user to describe the task and wait for their response.
+
+## Tracker
+
+Only when `config.tracker` exists. Every tracker operation follows the `tracker-sync` skill, runs here in the main session (never in a subagent), and never blocks the pipeline: a failure is recorded in `task.external.sync_errors` and the stage continues.
+
+- **Issue as input**: if the argument is an issue key or URL (`tracker-sync` → Pull) and the mode allows pull, read the issue in Step 1: the task's `title` and `description` (verbatim) come from it and `task.external` links it. In `create` mode, tell the user that pull is not enabled and treat the argument as a description.
+- **Route events** (fire them at these points): `start` when Stage 1 starts, `development` when Stage 4 starts (and per created sub-task when its developer run starts), `qa` when Stage 5 starts, `done_pipeline` after the post-QA commands of an approved QA, `blocked` whenever a stage becomes `blocked`.
+- **Create** (`create` or `both`, task not pulled): `create_parent` after the requirements are approved, `create_subtasks` after the plan is approved. Both are gated (in unattended mode, queued for the end).
+- **Comments**: Comment Commits after the post-QA commands.
+- Each stage summary lists that stage's tracker writes in one line; the completion report has the Tracker table.
 
 ## Unattended Mode
 
@@ -30,7 +40,7 @@ When `config.approver.enabled` and `config.approver.mode = "unattended"`, tell t
 
 Read `.agent-os/tasks/` to determine the next task ID (TASK-001, TASK-002, etc.).
 
-Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill), then record its git baseline (Recording the git baseline in the same skill).
+Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill), then record its git baseline (Recording the git baseline in the same skill). If the input is a tracker issue, fill `title`, `description` and `external` from it (`tracker-sync` → Pull); the requirements-analyst then receives that description verbatim as the task description.
 
 Update `.agent-os/state.json`:
 ```json
@@ -51,6 +61,8 @@ Tell the user: "Created TASK-NNN: [title]. Starting Stage 1: Discovery."
 Read `${CLAUDE_PLUGIN_ROOT}/workflows/01-discovery.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Follow the `skill-resolution` skill for stage `discovery`, agent `requirements-analyst`. Show any warnings.
+
+Tracker: fire the `start` route event.
 
 Spawn a `requirements-analyst` agent with:
 - The task description (verbatim)
@@ -87,6 +99,8 @@ Reply "approve" to continue to Planning, or describe any changes needed.
 
 **Wait for the user's reply in this conversation.** When the user approves (any affirmative reply: "approve", "yes", "ok", "looks good", etc.): record the approval with `approved_by = "human"` (How to Record an Approval in the approval-gates skill), then immediately continue to Stage 2 without stopping. When the user requests changes: follow How to Handle Rejection or Change Requests, then present this gate again.
 
+Tracker: once the requirements are approved (by the human or the approver), run `create_parent` (`tracker-sync` → Create) when the mode allows it and the task has no issue yet.
+
 ---
 
 ## Stage 2: Planning
@@ -112,6 +126,8 @@ Without approver review, or once approved:
 - `stages.planning.status = "done"`
 - Add `"planning"` to `stages_completed` in state.json.
 - Update `current_stage = "design"`.
+
+Tracker: run `create_subtasks` (`tracker-sync` → Create) when the task has an issue created by agent-os.
 
 ---
 
@@ -173,6 +189,8 @@ For `monorepo` or `multi-repo`: pass `working_directory: [config.workspace_paths
 
 Run **one agent per role** with all of that role's subtasks (applying focus filtering above), in dependency order, following the Execution Rule in the development workflow: roles run in parallel when neither depends on the other; cross-role dependencies split a role's list into consecutive batches.
 
+Tracker: fire the `development` route event when the stage starts, and for the created sub-tasks of each run when that run starts.
+
 Each agent run receives, per Step 5 of the `skill-resolution` skill (references only, never pasted content):
 - The subtask IDs of that run, in order, each with its title
 - The task file path, the project config path, and the paths of the relevant ADR files
@@ -197,6 +215,8 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/05-testing-qa.md` and follow it completely
 
 Follow the `skill-resolution` skill for stage `qa`, agent `qa-engineer`. Show any warnings.
 
+Tracker: fire the `qa` route event.
+
 Spawn a `qa-engineer` agent (and any extra Agents from the resolution result in parallel) with:
 - The task file path and project config path
 - The extension resolution block under the heading `## Extensions`
@@ -210,6 +230,7 @@ After the agent returns:
   - Set `task.status = "done"`, `task.completed_at = now`
   - In unattended mode, show the **Approver Decisions Report** (`approval-gates` skill) first, so the user sees what was decided before any command question.
   - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs, in every approver mode, unattended included; only commands tagged `[auto]` (configured with `auto: true`) run without one
+  - Tracker (`tracker-sync`): in unattended mode, the Pending Writes gate; then Comment Commits (gated); then the `done_pipeline` route event
   - Set `state.json: current_stage = "idle", active_task_id = null`
   - Show completion summary
 
@@ -235,6 +256,7 @@ Stages: Discovery ✓ | Planning ✓ | Design ✓ | Development ✓ | QA ✓
 Files modified: [N files]
 Tests: [N passed]
 Decisions recorded: [DEC-NNN, ...]
+Tracker: [KEY → status · N errores (/agent-os:tracker sync) · omit without tracker]
 
 Run `/agent-os:status` to view the project state.
 ─────────────────────────────────────────
