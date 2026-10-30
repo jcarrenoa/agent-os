@@ -55,6 +55,11 @@
         }
       }
     },
+    "change_type": {
+      "type": "string",
+      "enum": ["feat", "fix", "chore", "refactor", "docs", "test"],
+      "description": "Kind of change, classified by the requirements-analyst and checked by the approver: feat = new capability; fix = corrects wrong behavior; refactor = no behavior change; chore = tooling, config, dependencies, infrastructure; docs = documentation only; test = tests only. Fills {type} in commit subjects."
+    },
     "requirements_format": {
       "type": "string",
       "enum": ["req", "user-stories"],
@@ -228,7 +233,7 @@
     },
     "commits": {
       "type": "array",
-      "description": "Local commits made for this task (written by a post-QA command such as a commit-per-repo user command). Used for the tracker comment.",
+      "description": "Local commits made for this task, written by /agent-os:commit (or another post-QA command). Used for the tracker comment.",
       "items": {
         "type": "object",
         "additionalProperties": false,

@@ -15,6 +15,20 @@
         "status": { "type": "string", "description": "Status (Jira) or state (Plane) name, as shown on the board." },
         "id": { "type": "string", "description": "Status / state ID, when known. Plane moves by state ID." }
       }
+    },
+    "gitConventions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Git conventions of one repo; each field overrides the same field of config.git.",
+      "properties": {
+        "base_branch": { "type": ["string", "null"], "description": "Long-lived branch feature branches are born from (e.g. qa). null = branch from the current HEAD." },
+        "branch_pattern": { "type": "string", "pattern": "\\{(key|task)\\}", "description": "Feature branch name with placeholders {key}, {task}, {slug} (e.g. feature/{key}-{slug}). Must contain {key} or {task}." },
+        "commit_pattern": { "type": "string", "pattern": "\\{summary\\}", "description": "Commit subject when the task has an issue key. Placeholders {key}, {task}, {type}, {scope}, {summary} (e.g. '{key} | {type}: {summary}')." },
+        "commit_pattern_no_key": { "type": "string", "pattern": "\\{summary\\}", "description": "Commit subject when the task has no issue key (e.g. '{type}: {summary}')." },
+        "commit_types": { "type": "array", "minItems": 1, "description": "Allowed commit types, in order of preference.", "items": { "type": "string", "pattern": "^[a-z]+$", "description": "One type, e.g. feat." } },
+        "commit_language": { "type": "string", "pattern": "^[a-z]{2}$", "description": "Language of commit subjects and bodies (ISO 639-1, e.g. en)." },
+        "protected_branches": { "type": "array", "description": "Branches /agent-os:commit never commits on. A trailing * is a glob (release/*).", "items": { "type": "string", "description": "Branch name or glob." } }
+      }
     }
   },
   "properties": {
@@ -312,6 +326,25 @@
         { "if": { "properties": { "provider": { "const": "jira" } } }, "then": { "required": ["jira"] } },
         { "if": { "properties": { "provider": { "const": "plane" } } }, "then": { "required": ["plane"] } }
       ]
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional git conventions of the project, proposed by /agent-os:setup from the commit history and used by /agent-os:commit. Missing fields take the defaults listed in /agent-os:commit. Nothing about branches or commit formats is fixed in the plugin.",
+      "properties": {
+        "base_branch": { "type": ["string", "null"], "description": "Long-lived branch feature branches are born from (e.g. qa). null = branch from the current HEAD." },
+        "branch_pattern": { "type": "string", "pattern": "\\{(key|task)\\}", "description": "Feature branch name with placeholders {key}, {task}, {slug} (e.g. feature/{key}-{slug}). Must contain {key} or {task}." },
+        "commit_pattern": { "type": "string", "pattern": "\\{summary\\}", "description": "Commit subject when the task has an issue key. Placeholders {key}, {task}, {type}, {scope}, {summary} (e.g. '{key} | {type}: {summary}')." },
+        "commit_pattern_no_key": { "type": "string", "pattern": "\\{summary\\}", "description": "Commit subject when the task has no issue key (e.g. '{type}: {summary}')." },
+        "commit_types": { "type": "array", "minItems": 1, "description": "Allowed commit types, in order of preference.", "items": { "type": "string", "pattern": "^[a-z]+$", "description": "One type, e.g. feat." } },
+        "commit_language": { "type": "string", "pattern": "^[a-z]{2}$", "description": "Language of commit subjects and bodies (ISO 639-1, e.g. en)." },
+        "protected_branches": { "type": "array", "description": "Branches /agent-os:commit never commits on. A trailing * is a glob (release/*).", "items": { "type": "string", "description": "Branch name or glob." } },
+        "repos": {
+          "type": "object",
+          "description": "Per-repo overrides, keyed by repo path relative to the workspace root (a workspace_paths value, or '.'). Used when the repos follow different conventions.",
+          "additionalProperties": { "$ref": "#/definitions/gitConventions" }
+        }
+      }
     },
     "extensions": {
       "$ref": "defaults.schema.json",

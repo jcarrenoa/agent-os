@@ -74,6 +74,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:skills remove <stage> <name\|path>` | Remove an extension from a stage. |
 | `/agent-os:skills mode <stage>.<role> extend\|replace` | Set whether the plugin default (tech-adaptation) is added for a role. |
 | `/agent-os:extensions [status\|install\|uninstall\|update]` | Check or install the recommended extensions from the catalog, after approving the exact commands. |
+| `/agent-os:commit [KEY]` | One local commit per repo for the task, on a feature branch named by the project's git conventions. Never pushes. See [Git conventions](#git-conventions). |
 | `/agent-os:tracker [setup\|map\|pick\|sync\|off]` | Jira / Plane integration over MCP: connect it, re-map the board columns, pick an issue, retry failed syncs. See [Tracker](#tracker). |
 
 ---
@@ -165,6 +166,8 @@ Every post-QA command asks for approval before it runs — whatever its descript
 ```
 
 Here `review-pull-request` is gated and `update-changelog` runs automatically. From the CLI: `/agent-os:skills add qa update-changelog --auto`.
+
+Built-in commands are listed with the `agent-os:` prefix, e.g. `"agent-os:commit"` (see [Git conventions](#git-conventions)).
 
 ### How agents apply extensions
 
@@ -462,6 +465,46 @@ The planner traces each subtask to `REQ-NNN`, `US-NNN` or `US-NNN-ACn`, and QA r
 
 ---
 
+## Git conventions
+
+agent-os does not hard-code a branching model or a commit format. Each project declares its own in `config.git`, and `/agent-os:setup` proposes it from the last 30 commit subjects and the branches of each repo; you confirm it, edit it, or skip it.
+
+```json
+"git": {
+  "base_branch": "qa",
+  "branch_pattern": "feature/{key}-{slug}",
+  "commit_pattern": "{key} | {type}: {summary}",
+  "commit_pattern_no_key": "{type}: {summary}",
+  "commit_types": ["feat", "fix", "chore"],
+  "commit_language": "en",
+  "protected_branches": ["master", "qa", "dev", "release/*"],
+  "repos": { "frontend-repo": { "commit_types": ["feat", "fix", "chore", "style"] } }
+}
+```
+
+| Placeholder | Value |
+|---|---|
+| `{key}` | The tracker issue key (`task.external.key`), or the task ID when there is none. Without an issue key, commits use `commit_pattern_no_key` |
+| `{task}` | The task ID (`TASK-007`) |
+| `{type}` | `task.change_type`, classified by the requirements analyst and checked by the approver |
+| `{summary}` | The task title as an imperative sentence in `commit_language`; the whole subject is at most 72 characters |
+| `{scope}` | The repo role, or the main module for a single repo |
+| `{slug}` | The title in kebab-case ASCII, at most 5 words |
+
+`repos` overrides fields for one repo when the repos follow different conventions. Without a `git` key, branches are `feature/{key}-{slug}` from the current branch, commits are `{type}: {summary}`, and `main`/`master` are protected.
+
+### /agent-os:commit
+
+Creates one local commit per repo with the task's changes:
+- **Only the task's changes**: when a task is created, agent-os records `task.git_baseline` (HEAD and the hash of every uncommitted file). Files that were already dirty and did not change stay out; files that were dirty and changed go in with a warning.
+- **Never commits secrets or tooling**: `.env*`, `*.pem`, `*.key`, `*.pfx`, `secrets*`, `credentials*`, local `appsettings.*.json`, `.agent-os/`, `.codegraph/`, `node_modules/`, `bin/`, `obj/` are unstaged and listed.
+- **Branch**: commits on the task's branch; from `base_branch` it creates the feature branch; from another task's branch or another protected branch it creates it from HEAD and warns. It never commits on a protected branch.
+- **Message**: the subject from the pattern, and one body line per subtask of the repo's role.
+- **Safe by design**: no `--no-verify`, `--amend` or `--no-gpg-sign`; a failing hook leaves the changes staged and is reported. **It never pushes.**
+- Records `task.commits`, which the tracker posts as a comment (always with your approval).
+
+Run it yourself, or let setup add it as a post-QA command (`"agent-os:commit"` in `extensions.stages.qa.commands`), gated by default.
+
 ## Tracker
 
 Optional integration with **Jira Cloud** or **Plane**, configured in `/agent-os:setup` (Step 2.2) or later with `/agent-os:tracker setup`. Without the `tracker` key in `config.json`, nothing changes.
@@ -508,7 +551,7 @@ An event without a column moves nothing. In Jira the move uses the issue's avail
 
 In unattended approver mode, creates and comments are queued and asked together at the end of the run. Nothing else is ever written: no field edits, assignees, deletions or links.
 
-**Commits comment**: after the post-QA commands, if `task.commits` has entries (written by a commit command such as a user `commit-per-repo`), agent-os drafts one comment on the issue (and, in create mode, one per sub-task with its own commits): per repository, the branch, and per commit the short hash, the subject and 1–3 lines of what it does. Nothing else is commented.
+**Commits comment**: after the post-QA commands, if `task.commits` has entries (written by `/agent-os:commit` or another post-QA command), agent-os drafts one comment on the issue (and, in create mode, one per sub-task with its own commits): per repository, the branch, and per commit the short hash, the subject and 1–3 lines of what it does. Nothing else is commented.
 
 ### Errors never block
 

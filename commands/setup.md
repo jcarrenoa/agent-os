@@ -248,6 +248,39 @@ Connects Jira or Plane through an MCP server. Writes to the tracker follow the `
 
 If any MCP call fails, say so, write no `tracker` key, suggest `/agent-os:tracker setup`, and continue: the tracker never blocks setup.
 
+## Step 2.3: Git Conventions (optional)
+
+Proposes how `/agent-os:commit` names branches and writes commit subjects. Nothing is fixed in the plugin: the conventions come from the project's own history. The repos are those of `/agent-os:commit` Step 1. Skip this step when none of them is a git repo.
+
+1. For each repo, read-only: `git -C <repo> log --no-merges -30 --format=%s`, `git -C <repo> branch -a --format=%(refname:short)` and `git -C <repo> log --merges -30 --format=%s`. Infer, using the placeholders of `/agent-os:commit` (Step 1):
+   - `commit_pattern`: the shape of the subjects that carry an issue key, with the separators copied exactly (`VR-91 | feat: Expand contact and group APIs` → `{key} | {type}: {summary}`; `feat(VR-91): ...` → `{type}({key}): {summary}`).
+   - `commit_pattern_no_key`: the shape of the subjects without a key (`fix: ...` → `{type}: {summary}`).
+   - `commit_types`: the types used, most frequent first. `commit_language`: the language of the summaries.
+   - `branch_pattern`: the shape of the feature branches (`feature/VR-91-expand-contact` → `feature/{key}-{slug}`).
+   - `base_branch`: the long-lived branch feature branches are merged into, from the merge subjects (`Merge pull request #12 from org/feature/VR-91-... into qa`) or the project's `CLAUDE.md`. When it is not clear, leave it `null` and say so.
+   - `protected_branches`: the long-lived branches that exist (`main`, `master`, `qa`, `dev`, `develop`, `staging`, and `release/*` when release branches exist).
+   - A field without a clear pattern in at least 5 subjects or branches stays empty (`—`): `/agent-os:commit` uses its default.
+2. Show the proposal, one column per repo (a single column when they agree), with an example subject for this project:
+   ```markdown
+   ### 🌿 Convenciones de git
+   | | backend | frontend |
+   |---|---|---|
+   | Rama base | qa | qa |
+   | Rama | feature/{key}-{slug} | feature/{key}-{slug} |
+   | Commit | {key} \| {type}: {summary} | {key} \| {type}: {summary} |
+   | Commit sin key | {type}: {summary} | {type}: {summary} |
+   | Tipos | feat, fix, chore | feat, fix, chore |
+   | Idioma | en | en |
+   | Protegidas | master, qa, dev, release/* | master, qa, dev |
+   | Ejemplo | VR-91 \| feat: Expand contact and group APIs | ... |
+   ```
+3. Ask both questions in one AskUserQuestion call, in `output_language` (with `--reconfigure`, mark the current values with "(actual)"):
+   - Header "Git" — "¿Usar estas convenciones para ramas y commits?": "Detectado (Recomendado)" (description: "Guarda la tabla tal cual") / "Editar" (description: "Escribe qué cambiar; te muestro la tabla de nuevo") / "Sin convención" (description: "Ramas feature/{key}-{slug} desde la rama actual y commits {type}: {summary}").
+   - Header "Commit" — "¿Hacer un commit local por repo al terminar QA (/agent-os:commit)? Nunca hace push.": "Sí, con aprobación (Recomendado)" (description: "Te pregunta antes de commitear") / "Sí, sin preguntar" (description: "Commitea al terminar QA; sigue sin hacer push") / "No" (description: "Lo lanzas tú con /agent-os:commit cuando quieras").
+4. Keep for Step 4:
+   - "Detectado" or the edited table → `config.git` with the values the repos share; the fields that differ go to `config.git.repos.<repo path>`. Empty fields are not written. "Sin convención" → no `git` key.
+   - "Sí, con aprobación" → `"agent-os:commit"` in `extensions.stages.qa.commands`; "Sí, sin preguntar" → `{ "name": "agent-os:commit", "auto": true }`; "No" → neither. Never add it twice; with `--reconfigure`, replace the existing entry.
+
 ## Step 2.5: Configure Extensions (optional)
 
 Run this step after receiving the user's answers from Step 2 but before writing any files.
@@ -331,7 +364,9 @@ After confirmation, create these files and directories:
     "requirements_format": "[req | user-stories, from Step 2.1]"
   },
   "approver": "[only if Step 2.1 enabled it: { enabled, mode, gates, max_revisions }]",
-  "tracker": "[only if Step 2.2 connected one: { provider, connection, mcp, mode, jira | plane, pick_assigned_to_me, status_route }]"
+  "tracker": "[only if Step 2.2 connected one: { provider, connection, mcp, mode, jira | plane, pick_assigned_to_me, status_route }]",
+  "git": "[only if Step 2.3 kept conventions: { base_branch, branch_pattern, commit_pattern, commit_pattern_no_key, commit_types, commit_language, protected_branches, repos? }]",
+  "extensions": "[from Step 2.5, plus agent-os:commit in stages.qa.commands if Step 2.3 enabled it]"
 }
 ```
 
@@ -438,6 +473,15 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 
 (Omit every row but "Gestor" when no tracker is connected.)
 
+### 🌿 Git
+| | |
+|---|---|
+| Convenciones | [Detectadas · Por repo · Sin convención (valores por defecto)] |
+| Rama | [branch_pattern] desde [base_branch · la rama actual] |
+| Commit | [commit_pattern] · sin key: [commit_pattern_no_key] |
+| Protegidas | [protected_branches] |
+| Commit tras QA | [Con aprobación · Sin preguntar · No] — nunca hace push |
+
 ### ▶️ Próximos pasos
 | Comando | Para qué |
 |---|---|
@@ -446,6 +490,7 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | `/agent-os:status` | Ver el estado actual |
 | `/agent-os:review` | Consola de aprobaciones (gate pendiente, veredicto del approver, historial) |
 | `/agent-os:start VR-123` · `/agent-os:tracker pick` | Empezar desde un issue (solo con tracker en pull o both) |
+| `/agent-os:commit` | Commit local por repo con las convenciones de git (nunca hace push) |
 ```
 
 To change these options later: `/agent-os:setup --reconfigure`, or edit `approver` and `preferences.requirements_format` in `.agent-os/config.json` (README → Approver). The tracker: `/agent-os:tracker setup | map | off`.

@@ -38,6 +38,7 @@ Stack:    [frontend] + [backend]
 Approver: [off | advisory | autonomous (max_revisions N) | unattended (max_revisions N)] — gates: [requirements, planning, design | —]
 Requirements format: [REQ | user stories]
 Tracker:  [none | Jira VR (MCP, mode both) | Plane REACH (MCP, mode pull)]
+Git:      [defaults | branch_pattern from base_branch · commit_pattern; "per repo" when config.git.repos is set] · commit after QA: [gate | auto | off]
 
 Pipeline State
   Stage:   [current_stage]
@@ -67,7 +68,8 @@ Active Task: [TASK-NNN] — [title]
   (Omit the "approved by", "approver", "unresolved" and "QA retries" parts when they do not apply.)
   Approver decisions: [N — see `/agent-os:review`; omit when task.approver_decisions is empty]
 
-  Requirements: [N captured] [+ N user stories, N acceptance criteria — user-stories only]
+  Requirements: [N captured] [+ N user stories, N acceptance criteria — user-stories only] · type: [change_type]
+  Commits:      [N — repo branch hash, ... · omit when task.commits is empty]
   Subtasks:     [N total, N done]
   Decisions:    [N recorded]
   Files:        [N modified]
@@ -89,6 +91,7 @@ Available Commands
   /agent-os:start "[description]"   ← New task (full pipeline)
   /agent-os:review                  ← Approval console (gate, approver verdict, history)
   /agent-os:tracker [pick|sync|map]  ← Tracker issue link, route of action, retries
+  /agent-os:commit [KEY]            ← Local commit per repo (never pushes)
   /agent-os:approve                 ← Approve pending gate
   /agent-os:rollback [stage]        ← Return to a previous stage
   /agent-os:discover "[description]" ← Run Stage 1 only

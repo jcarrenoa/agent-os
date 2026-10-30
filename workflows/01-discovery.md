@@ -70,6 +70,7 @@ REQUIREMENTS OUTPUT
 ===================
 Task: [title]
 Summary: [2-3 sentences]
+Change type: [feat | fix | chore | refactor | docs | test]
 
 FUNCTIONAL REQUIREMENTS                  (requirements_format = "req", the default)
   REQ-001 [must]: [description]
@@ -106,6 +107,7 @@ During this stage, the command updates:
 2. When agent completes:
    - `task.requirements_format` = `config.preferences.requirements_format` (missing = `"req"`).
    - Populate `task.requirements` (functional with `"req"`; non-functional and constraints always) and, with `"user-stories"`, `task.user_stories` (`id`, `role`, `capability`, `benefit`, `priority`, `acceptance_criteria[{ id, text }]`).
+   - Set `task.change_type` from the agent's Change Type.
    - Populate `task.assumptions` and `task.out_of_scope`. `task.open_questions` is written only by the Clarifying Questions Protocol; questions the analyst flags as still open keep `resolution = null`.
    - On a revision run, replace these fields (except `open_questions`) with the new version.
    - If the agent returned a `QUESTIONS` block instead: Clarifying Questions Protocol, then re-run it.

@@ -79,6 +79,7 @@ Check, and report a finding for each problem:
 - **Conflicts with CLAUDE.md**: any requirement that contradicts the project rules.
 - **Assumptions**: each one in `assumptions` is reasonable; an assumption that changes behavior the user would notice should have been a question.
 - **Open questions**: an unresolved question that blocks planning is a blocker.
+- **Change type**: `change_type` is set and matches the request (`fix` only when existing behavior is wrong, `feat` for a new capability, `refactor` only without behavior change). A wrong or missing type is a `minor` finding with the right type.
 
 ## Review: planning
 

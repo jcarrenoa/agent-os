@@ -1,7 +1,7 @@
 ---
 name: skill-resolution
 description: Resolves which skills, docs, agents, and commands are active for a given pipeline stage, role, and agent, resolves the agent-os plugin root, defines what goes in each agent prompt, and verifies that agents applied their extensions. Use this skill before spawning any agent to determine what extensions are configured, and before reading any file bundled with the plugin (workflows, schemas, plugin skills). Called by every stage command (discover, plan, design, develop, qa) in the agent-os pipeline.
-version: 3.4.0
+version: 3.5.0
 ---
 
 # Skill Resolution Protocol
@@ -167,7 +167,7 @@ For each agent name: check the project locations (`<location>/.claude/agents/<na
 
 ### Commands (QA only)
 
-For each command name: check the project locations (`<location>/.claude/commands/<name>.md`), then `~/.claude/commands/<name>.md`. Not found → warning.
+For each command name: a prefixed `agent-os:<command>` is a built-in command, `PLUGIN_ROOT/commands/<command>.md`. Otherwise check the project locations (`<location>/.claude/commands/<name>.md`), then `~/.claude/commands/<name>.md`. Not found → warning. To run a command, read its file and follow it.
 
 **Every post-QA command requires an approval gate by default.** Tag it `[gate]` unless its normalized entry has `auto: true`, in which case tag it `[auto]`. Never infer `auto` from the command's description, frontmatter, or name — a command without frontmatter is still gated.
 

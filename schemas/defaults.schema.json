@@ -40,7 +40,7 @@
       "oneOf": [
         {
           "type": "string",
-          "description": "Command name as it appears in .claude/commands/ or ~/.claude/commands/. Always gated."
+          "description": "Command name as it appears in .claude/commands/ or ~/.claude/commands/, or agent-os:<command> for a built-in command. Always gated."
         },
         {
           "type": "object",
@@ -50,7 +50,7 @@
           "properties": {
             "name": {
               "type": "string",
-              "description": "Command name as it appears in .claude/commands/ or ~/.claude/commands/."
+              "description": "Command name as it appears in .claude/commands/ or ~/.claude/commands/, or agent-os:<command> for a built-in command."
             },
             "auto": {
               "type": "boolean",
