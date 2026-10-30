@@ -1,7 +1,7 @@
 ---
 description: Run Stage 1 (Discovery & Requirements) for a task. Captures and structures requirements before any planning or implementation. Requires approval before planning can begin.
 argument-hint: "<task description>"
-allowed-tools: [Read, Write, Glob, Grep, Bash]
+allowed-tools: [Read, Write, Glob, Grep, Bash, AskUserQuestion]
 ---
 
 # Agent OS — Stage 1: Discovery
@@ -40,13 +40,15 @@ Spawn a `requirements-analyst` agent. Pass it:
 
 Build the agent prompt with Step 5 of the `skill-resolution` skill (file paths and references only, never pasted content). After the agent returns, verify its `EXTENSIONS APPLIED` section with Step 6 of that skill.
 
-After the agent completes:
-1. Record its output in the task file as described in the workflow's State Updates (step 2): `requirements_format`, `requirements`, `user_stories` (with user stories), `assumptions`, `out_of_scope`, `open_questions`.
+If the agent returned a `QUESTIONS` block: follow the **Clarifying Questions Protocol** of the workflow (AskUserQuestion, or the approver in unattended mode), record the answers in `open_questions`, and re-run the agent with the `Answers:` line. Never answer the questions yourself or let the agent assume them.
+
+When it returns the requirements:
+1. Record its output in the task file as described in the workflow's State Updates (step 2): `requirements_format`, `requirements`, `user_stories` (with user stories), `assumptions`, `out_of_scope`.
 2. Set `stages.discovery.output_summary` to a 1-2 sentence summary.
 
 ## Approver Review
 
-Only when `config.approver.enabled` and `"requirements"` is in `config.approver.gates`: follow **Approver Review** in the `approval-gates` skill. In autonomous mode, an `APPROVE` records the approval with `approved_by = "approver"`: tell the user, advance state to `planning / not_started`, suggest `/agent-os:plan` or `/agent-os:start`, and stop. Otherwise continue to Request Approval.
+Only when `config.approver.enabled` and `"requirements"` is in `config.approver.gates`: follow **Approver Review** in the `approval-gates` skill. In autonomous or unattended mode, an approver approval (`approved_by = "approver"`): tell the user, advance state to `planning / not_started`, suggest `/agent-os:plan` or `/agent-os:start`, and stop. If unattended mode blocked the stage: show the blocker and stop. Otherwise continue to Request Approval.
 
 ## Request Approval
 

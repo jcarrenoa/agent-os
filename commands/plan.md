@@ -40,15 +40,17 @@ After the agent completes:
 ## Scope Change Check
 
 If the planner identified that implementation requires scope beyond the approved requirements:
-- **Stop** and flag it to the user.
+- Unattended approver mode: the approver decides (Scope Change in the `approval-gates` skill). `ORIGINAL_SCOPE` continues; `EXPAND` blocks the stage: show the blocker and stop.
+- Otherwise: **stop** and flag it to the user.
 - Ask: "The planner identified that this task requires [new scope]. Do you want to (1) expand scope and re-run discovery, or (2) proceed with original scope only?"
 - **Wait for answer** before updating state.
 
 ## Approver Review
 
 Only when `config.approver.enabled` and `"planning"` is in `config.approver.gates`: follow **Approver Review** in the `approval-gates` skill.
-- **advisory**, or **autonomous** stopped at a human gate: set `stages.planning.status = "awaiting_approval"`, `state.json.stage_status = "awaiting_approval"` and `pending_approval = { gate: "plan-approved", ..., next_stage: "design", approver_verdict }`. Present the gate with the plan summary and the approver verdict block, then **stop and wait** for `/agent-os:approve`, `/agent-os:review`, or an explicit approval in the conversation (recorded with `approved_by = "human"`). Change requests follow How to Handle Rejection or Change Requests.
-- **autonomous** `APPROVE`: record the approval with `approved_by = "approver"` and continue to Complete Stage.
+- **advisory**, **autonomous** stopped at a human gate, or a stage with a human change request: set `stages.planning.status = "awaiting_approval"`, `state.json.stage_status = "awaiting_approval"` and `pending_approval = { gate: "plan-approved", ..., next_stage: "design", approver_verdict }`. Present the gate with the plan summary and the approver verdict block, then **stop and wait** for `/agent-os:approve`, `/agent-os:review`, or an explicit approval in the conversation (recorded with `approved_by = "human"`). Change requests follow How to Handle Rejection or Change Requests.
+- **autonomous** or **unattended** `APPROVE` (or unattended Exhausted Revisions with only major/minor left): record the approval with `approved_by = "approver"` and continue to Complete Stage.
+- **unattended** blocked: show the blocker and stop.
 
 ## Complete Stage
 
@@ -71,7 +73,7 @@ Subtasks: [N]
 
 Complexity: [Simple|Medium|Complex]
 Risks: [N identified]
-Approver: [APPROVE (approved by approver) | — when not reviewed]
+Approver: [APPROVE (approved by approver) | approved with unresolved R<n>-F-NN | — when not reviewed]
 
 Next: Stage 3 — Design/Architecture
   Run `/agent-os:design` or `/agent-os:start`

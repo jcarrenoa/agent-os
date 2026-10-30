@@ -58,6 +58,8 @@ If the planner discovers that implementing the requirements requires work not co
    ```
 3. The command waits for user decision before updating state.
 
+In unattended approver mode the approver decides instead of the user (Scope Change in the `approval-gates` skill): `ORIGINAL_SCOPE` → option 2; `EXPAND` → the stage is `blocked`, because re-running Stage 1 with a new description is the user's call.
+
 ## Output Format
 
 The planner returns:
@@ -104,8 +106,9 @@ ARCHITECT INVOLVEMENT REQUIRED: [yes|no]
    - On a revision run, replace `task.subtasks` and `task.plan` with the new version.
 3. Scope Change Protocol first (above), if the planner flagged one.
 4. Approver review (only when `config.approver.enabled` and `"planning"` is in `config.approver.gates`): follow **Approver Review** in the `approval-gates` skill.
-   - **advisory**, or **autonomous** stopped at a human gate: `task.stages.planning.status = "awaiting_approval"`, `state.json.stage_status = "awaiting_approval"`, `state.json.pending_approval = { gate: "plan-approved", context: "...", next_stage: "design", approver_verdict: [verdict] }`. Wait for the approval (How to Record an Approval).
-   - **autonomous** `APPROVE`: record the approval with `approved_by = "approver"`.
+   - **advisory**, **autonomous** stopped at a human gate, or a stage with a human change request: `task.stages.planning.status = "awaiting_approval"`, `state.json.stage_status = "awaiting_approval"`, `state.json.pending_approval = { gate: "plan-approved", context: "...", next_stage: "design", approver_verdict: [verdict] }`. Wait for the approval (How to Record an Approval).
+   - **autonomous** or **unattended** `APPROVE`, or unattended Exhausted Revisions with only major/minor left: record the approval with `approved_by = "approver"` (and `stages.planning.unresolved_findings` in the second case).
+   - **unattended** Exhausted Revisions with a blocker: `stage_status = "blocked"`, `state.json.blocker` filled; stop.
 5. Without approver review (or once approved):
    - `task.stages.planning.status = "done"` (with `approved_at` and `approved_by` only if a gate was approved).
    - Add `"planning"` to `stages_completed` in state.json.

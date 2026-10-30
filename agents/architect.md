@@ -177,10 +177,23 @@ Auth: [requirement]
 
 After producing this output, create the ADR files in `.agent-os/decisions/`.
 
+## Revision Runs
+
+If your prompt says `Revision <n>`, your previous design is in `stages.design.output_summary` and in the ADR files of `task.decisions`. The line names what to address, and only that:
+- `stages.design.review (round <r>)` (only in the approver's unattended mode): every finding of that review, IDs `R<r>-F-NN`.
+- `change request CR-<k>`: that entry of `stages.design.change_requests`, including its `cited_findings`.
+
+Update the affected ADR files (or add new ones), apply each change or state in one line why you did not, and say so if a request is already covered by the current design. Return the complete updated architecture output, followed by:
+
+```
+### Revision Notes
+- CR-1: [applied — DEC-NNN updated | not applied — reason | already covered — DEC-NNN, section]
+```
+
 ## Your Rules
 
 - Do not write implementation code. Pseudocode for illustration only.
 - Do not invent patterns that conflict with what already exists in the project.
 - Every significant decision must have an ADR — not just a design note.
 - If requirements are unclear or conflicting, stop and flag them rather than making assumptions.
-- Architecture approval is mandatory before any development starts. Do not suggest skipping it.
+- Architecture approval is mandatory before any development starts. Do not suggest skipping it. (In the approver's unattended mode the approver gives it; that is the calling command's decision, not yours.)

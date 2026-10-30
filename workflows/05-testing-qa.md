@@ -54,7 +54,10 @@ QA Recommendation?
 │   └── Close task as done. Show completion summary.
 │
 └── REQUEST_CHANGES
-    └── Present issues to user. Ask:
+    ├── Unattended approver mode → QA Retries (approval-gates skill):
+    │   re-run development with the issues up to max_revisions, then
+    │   critical left → blocked · only major/minor → close with unresolved_findings
+    └── Otherwise: present issues to user. Ask:
         ├── "Fix now" → rollback development stage, re-run develop + qa
         ├── "Accept and close" → user accepts risk, close with QA notes
         └── "New task for fixes" → close current task, advise user to create follow-up
@@ -65,6 +68,7 @@ QA Recommendation?
 1. When starting: `task.stages.qa.status = "in_progress"`, `started_at = now`.
 2. After agent report:
    - Update `task.test_results` from agent output.
+   - `task.stages.qa.issues` = every issue of the report (`id`, `severity` critical|major|minor, `location`, `description`).
    - `task.stages.qa.output_summary = "[N tests passed, N failed. N issues found.]"`.
    
 3. On APPROVE + task close:

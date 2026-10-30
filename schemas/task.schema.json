@@ -104,8 +104,52 @@
     },
     "open_questions": {
       "type": "array",
-      "description": "Questions that could not be resolved in Stage 1.",
-      "items": { "type": "string", "description": "One open question." }
+      "description": "Clarifying questions the requirements-analyst returned in Stage 1 (QUESTIONS block), with their answers. resolution = null means still unresolved.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "resolution", "resolved_by"],
+        "description": "One clarifying question.",
+        "properties": {
+          "id": { "type": "string", "pattern": "^Q-[0-9]+$", "description": "Question ID, e.g. Q-1. Unique within the task across question rounds." },
+          "question": { "type": "string", "description": "The question, as the analyst wrote it." },
+          "why": { "type": "string", "description": "What changes in the requirements depending on the answer." },
+          "options": {
+            "type": "array",
+            "description": "The answers the analyst proposed; the first one is its proposed default.",
+            "items": { "type": "string", "description": "One proposed answer." }
+          },
+          "resolution": { "type": ["string", "null"], "description": "The answer, verbatim, or null while unresolved." },
+          "resolved_by": {
+            "type": ["string", "null"],
+            "enum": ["human", "approver", "default", null],
+            "description": "human = the user answered; approver = the approver answered (unattended mode only); default = the user explicitly delegated the answer and the analyst's proposed default was applied; null = unresolved."
+          },
+          "resolved_at": { "type": ["string", "null"], "description": "When it was answered (ISO 8601), or null." }
+        }
+      }
+    },
+    "approver_decisions": {
+      "type": "array",
+      "description": "Every decision the approver took instead of a human (autonomous and unattended modes), in order. Shown in the final 'Approver decisions' report and in /agent-os:review.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["at", "stage", "kind", "decision", "ref"],
+        "description": "One approver decision.",
+        "properties": {
+          "at": { "type": "string", "format": "date-time", "description": "When it was decided." },
+          "stage": { "type": "string", "enum": ["discovery", "planning", "design", "development", "qa"], "description": "Stage it belongs to." },
+          "kind": {
+            "type": "string",
+            "enum": ["gate", "question", "scope-change", "revision", "qa-retry", "continue-unresolved", "blocked"],
+            "description": "gate = approved a gate; question = answered a clarifying question; scope-change = decided a planner scope change; revision = re-ran the producing agent with its findings; qa-retry = re-ran development with QA issues; continue-unresolved = advanced after max_revisions with only major/minor left; blocked = stopped on a blocker."
+          },
+          "decision": { "type": "string", "description": "What was decided, in one line (e.g. 'APPROVE', 'Q-2: soft delete', 'ORIGINAL_SCOPE')." },
+          "reason": { "type": "string", "description": "Why, in one line." },
+          "ref": { "type": "string", "description": "Where the details are in this task file, e.g. 'stages.planning.review (round 2)', 'open_questions Q-2', 'stages.qa.issues'." }
+        }
+      }
     },
     "plan": {
       "type": "object",
@@ -202,6 +246,35 @@
     }
   },
   "definitions": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "finding", "proposed_change"],
+      "description": "One approver finding.",
+      "properties": {
+        "id": { "type": "string", "pattern": "^R[0-9]+-F-[0-9]+$", "description": "Finding ID prefixed with its review round, e.g. R2-F-01. Unique within the stage across rounds." },
+        "severity": { "type": "string", "enum": ["blocker", "major", "minor"], "description": "blocker and major lead to REQUEST_CHANGES; minor alone does not." },
+        "target": { "type": "string", "description": "What it refers to: a REQ/US/SUB/DEC/Q ID or a section name." },
+        "finding": { "type": "string", "description": "The problem." },
+        "proposed_change": { "type": "string", "description": "The concrete change the approver proposes." }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round", "verdict", "reviewed_at", "findings"],
+      "description": "One approver review of a stage.",
+      "properties": {
+        "round": { "type": "integer", "minimum": 1, "description": "Review round of this stage, starting at 1. Prefixes the finding IDs." },
+        "verdict": { "type": "string", "enum": ["APPROVE", "REQUEST_CHANGES"], "description": "The approver's verdict." },
+        "reviewed_at": { "type": "string", "format": "date-time", "description": "When the review finished." },
+        "findings": {
+          "type": "array",
+          "description": "Findings of this review.",
+          "items": { "$ref": "#/definitions/finding" }
+        }
+      }
+    },
     "stageRecord": {
       "type": "object",
       "properties": {
@@ -215,47 +288,60 @@
         "approved_by": {
           "type": ["string", "null"],
           "enum": ["human", "approver", null],
-          "description": "Who approved the stage's gate. approver only in autonomous mode for requirements and planning; design is always human. null for stages without a gate."
+          "description": "Who approved the stage's gate. approver = autonomous or unattended mode (design only in unattended). null for stages without a gate."
         },
         "review": {
-          "type": ["object", "null"],
-          "additionalProperties": false,
-          "required": ["verdict", "reviewed_at", "findings", "revisions"],
-          "description": "Latest approver review of this stage. Only discovery and planning.",
-          "properties": {
-            "verdict": { "type": "string", "enum": ["APPROVE", "REQUEST_CHANGES"], "description": "The approver's verdict." },
-            "reviewed_at": { "type": "string", "format": "date-time", "description": "When the latest review finished." },
-            "revisions": { "type": "integer", "minimum": 0, "description": "Times the producing agent was re-run with findings for this stage (approver or human change requests)." },
-            "findings": {
-              "type": "array",
-              "description": "Findings of the latest review.",
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["id", "severity", "finding", "proposed_change"],
-                "description": "One finding.",
-                "properties": {
-                  "id": { "type": "string", "pattern": "^F-[0-9]+$", "description": "Finding ID, e.g. F-01." },
-                  "severity": { "type": "string", "enum": ["blocker", "major", "minor"], "description": "blocker and major lead to REQUEST_CHANGES; minor alone does not." },
-                  "target": { "type": "string", "description": "What it refers to: a REQ/US/SUB ID or a section name." },
-                  "finding": { "type": "string", "description": "The problem." },
-                  "proposed_change": { "type": "string", "description": "The concrete change the approver proposes." }
-                }
-              }
+          "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/review" }],
+          "description": "Latest approver review of this stage (discovery, planning; design only in unattended mode)."
+        },
+        "review_history": {
+          "type": "array",
+          "description": "Earlier approver reviews of this stage, oldest first. A review moves here when a new round replaces it, so cited finding IDs stay resolvable.",
+          "items": { "$ref": "#/definitions/review" }
+        },
+        "auto_revisions": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Revision runs started without a human: approver REQUEST_CHANGES, and in unattended mode QA REQUEST_CHANGES (counted on qa). Compared with config.approver.max_revisions. Human change requests are not counted here."
+        },
+        "unresolved_findings": {
+          "type": "array",
+          "description": "Unattended mode only: IDs of major/minor approver findings (R<n>-F-NN) or QA issues (M-/m-NNN) left open when max_revisions was reached.",
+          "items": { "type": "string", "pattern": "^(R[0-9]+-F-[0-9]+|[CMm]-[0-9]+)$", "description": "Finding or issue ID." }
+        },
+        "issues": {
+          "type": "array",
+          "description": "qa only: issues of the latest QA report, so development revision runs can read them.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "severity", "description"],
+            "description": "One QA issue.",
+            "properties": {
+              "id": { "type": "string", "pattern": "^[CMm]-[0-9]+$", "description": "Issue ID from the QA report (C-001 critical, M-001 major, m-001 minor)." },
+              "severity": { "type": "string", "enum": ["critical", "major", "minor"], "description": "critical blocks approval." },
+              "location": { "type": "string", "description": "file:line, or the requirement / criterion ID." },
+              "description": { "type": "string", "description": "The issue." }
             }
           }
         },
         "change_requests": {
           "type": "array",
-          "description": "Changes a human requested at this stage's gate, in order.",
+          "description": "Changes a human requested at this stage's gate, in order. They never count against max_revisions.",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["requested_at", "text"],
+            "required": ["id", "requested_at", "text"],
             "description": "One change request.",
             "properties": {
+              "id": { "type": "string", "pattern": "^CR-[0-9]+$", "description": "Change request ID within the stage, e.g. CR-1." },
               "requested_at": { "type": "string", "format": "date-time", "description": "When it was requested." },
-              "text": { "type": "string", "description": "The requested changes, as the user wrote them." }
+              "text": { "type": "string", "description": "The requested changes, as the user wrote them." },
+              "cited_findings": {
+                "type": "array",
+                "description": "Copies of the approver findings the text cites, taken when the request was recorded, so later review rounds cannot change what they refer to.",
+                "items": { "$ref": "#/definitions/finding" }
+              }
             }
           }
         },

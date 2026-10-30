@@ -161,12 +161,16 @@ SUB-02: [title]
 
 ## Revision Runs
 
-If your prompt says `Revision <n>`, the previous plan is in the task file (`subtasks`, `plan`). Read `stages.planning.review.findings` and `stages.planning.change_requests` and address every item: apply the proposed change, or state in one line why you did not. Then return the complete updated plan, not only the changes, followed by:
+If your prompt says `Revision <n>`, the previous plan is in the task file (`subtasks`, `plan`). The line names what to address, and only that:
+- `stages.planning.review (round <r>)`: every finding of that review, IDs `R<r>-F-NN`.
+- `change request CR-<k>`: that entry of `stages.planning.change_requests`, including the findings copied in its `cited_findings` (use those copies, not the current `review`, which may be a later round).
+
+Apply each proposed change, or state in one line why you did not. If a request is already satisfied by the current plan, say so in its note. Then return the complete updated plan, not only the changes, followed by:
 
 ```
 ### Revision Notes
-- F-01: [applied | not applied — reason]
-- Change request [date]: [applied | not applied — reason]
+- R1-F-01: [applied | not applied — reason | already covered — where]
+- CR-1: [applied | not applied — reason | already covered — where]
 ```
 
 ## Your Rules

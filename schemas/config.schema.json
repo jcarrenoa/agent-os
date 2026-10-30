@@ -155,7 +155,7 @@
     "approver": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Optional approver agent that reviews the requirements and the plan before their gates. Missing, or enabled = false: the pipeline behaves exactly as without it. It can never review or approve the architecture gate, which is always human.",
+      "description": "Optional approver agent that reviews stage outputs before their gates. Missing, or enabled = false: the pipeline behaves exactly as without it. The architecture gate (design) can only be given to it in unattended mode.",
       "required": ["enabled"],
       "properties": {
         "enabled": {
@@ -165,19 +165,19 @@
         },
         "mode": {
           "type": "string",
-          "enum": ["advisory", "autonomous"],
+          "enum": ["advisory", "autonomous", "unattended"],
           "default": "advisory",
-          "description": "advisory = the verdict is shown at a human gate and the human decides (planning gets a human gate while the approver reviews it). autonomous = APPROVE advances without asking; REQUEST_CHANGES re-runs the producing agent up to max_revisions times, then stops at a human gate."
+          "description": "advisory = the verdict is shown at a human gate and the human decides (planning gets a human gate while the approver reviews it). autonomous = APPROVE advances without asking; REQUEST_CHANGES re-runs the producing agent up to max_revisions times, then stops at a human gate. unattended = the approver also answers the clarifying questions, decides scope changes, may review the architecture, and QA failures re-run development; after max_revisions it continues with unresolved major/minor findings and stops only on a blocker. Post-QA commands tagged [gate] still ask the human."
         },
         "gates": {
           "type": "array",
-          "description": "Gates the approver reviews. Only requirements (Stage 1) and planning (Stage 2); the architecture gate is not allowed.",
+          "description": "Gates the approver reviews. requirements (Stage 1) and planning (Stage 2) in any mode; design (Stage 3, architecture) only when mode = unattended.",
           "uniqueItems": true,
           "default": ["requirements", "planning"],
           "items": {
             "type": "string",
-            "enum": ["requirements", "planning"],
-            "description": "requirements = requirements-approved gate; planning = plan-approved gate."
+            "enum": ["requirements", "planning", "design"],
+            "description": "requirements = requirements-approved gate; planning = plan-approved gate; design = architecture-approved gate (unattended only)."
           }
         },
         "max_revisions": {
@@ -185,8 +185,19 @@
           "minimum": 0,
           "maximum": 5,
           "default": 0,
-          "description": "autonomous only: how many times the producing agent is re-run with the approver's findings before stopping at a human gate. 0 = stop at the first REQUEST_CHANGES."
+          "description": "autonomous and unattended: how many revision runs a stage may get without a human (approver REQUEST_CHANGES; in unattended also QA REQUEST_CHANGES). Human change requests do not count. 0 = stop at the first REQUEST_CHANGES (autonomous only; unattended requires at least 1)."
         }
+      },
+      "if": {
+        "properties": { "mode": { "const": "unattended" } },
+        "required": ["mode"]
+      },
+      "then": {
+        "required": ["max_revisions"],
+        "properties": { "max_revisions": { "minimum": 1 } }
+      },
+      "else": {
+        "properties": { "gates": { "items": { "enum": ["requirements", "planning"] } } }
       }
     },
     "extensions": {

@@ -75,11 +75,19 @@ Analyze the user's task description. Identify:
 
 ### Step 3: Ask Clarifying Questions
 
-Before producing requirements, ask the minimum set of questions needed to eliminate ambiguity.
+You cannot talk to the user: the calling command asks for you (Clarifying Questions Protocol in `01-discovery.md`).
 
-Group questions by theme. Be specific — not "can you elaborate?" but "when a user resets their password, should the old sessions be invalidated?".
-
-**Wait for user answers before proceeding.**
+- **First run**: if anything that changes the requirements is ambiguous, return only a `QUESTIONS` block, at most 8 questions, and stop. Do not produce requirements in the same run.
+  ```
+  QUESTIONS
+  - Q-1: [question]
+    Why: [what changes in the requirements depending on the answer]
+    Options: [proposed default] | [alternative] | [alternative]
+  ```
+  Be specific — not "can you elaborate?" but "when a user resets their password, should the old sessions be invalidated?". Give 2–4 options, your proposed default first. Number from the last ID in `task.open_questions` + 1.
+- **Answers run** (your prompt says `Answers: read open_questions in the task file.`): read `open_questions` and use every `resolution` as a decision of the user (`resolved_by` says who gave it). You may return one more `QUESTIONS` block only if an answer opened a new ambiguity, and only once.
+- **Never answer your own questions** and never close one with a default because "there is nobody to ask": that is the command's job. Use `assumptions` only for details that do not change behavior the user would notice.
+- If there is nothing to ask, go straight to Step 4.
 
 ### Step 4: Produce Requirements
 
@@ -155,7 +163,7 @@ Return a structured document in this format:
 - ...
 
 ### Open Questions
-[Any questions that could not be resolved and need to be flagged]
+[Q-N: question — for each entry of open_questions still without a resolution after two rounds, or "none". Answered questions are not repeated here.]
 
 ### Recommended Subtask Breakdown (high-level)
 [3-7 high-level implementation areas for the planner]
@@ -163,12 +171,16 @@ Return a structured document in this format:
 
 ## Revision Runs
 
-If your prompt says `Revision <n>`, the previous version is in the task file (`requirements`, `user_stories`, `assumptions`, `out_of_scope`, `open_questions`). Read `stages.discovery.review.findings` and `stages.discovery.change_requests` and address every item: apply the proposed change, or state in one line why you did not. Then return the complete updated document, not only the changes, followed by:
+If your prompt says `Revision <n>`, the previous version is in the task file (`requirements`, `user_stories`, `assumptions`, `out_of_scope`, `open_questions`). The line names what to address, and only that:
+- `stages.discovery.review (round <r>)`: every finding of that review, IDs `R<r>-F-NN`.
+- `change request CR-<k>`: that entry of `stages.discovery.change_requests`, including the findings copied in its `cited_findings` (use those copies, not the current `review`, which may be a later round).
+
+Apply each proposed change, or state in one line why you did not. If a request is already satisfied by the current version, say so in its note. Then return the complete updated document, not only the changes, followed by:
 
 ```
 ### Revision Notes
-- F-01: [applied | not applied — reason]
-- Change request [date]: [applied | not applied — reason]
+- R1-F-01: [applied | not applied — reason | already covered — where]
+- CR-1: [applied | not applied — reason | already covered — where]
 ```
 
 ## Your Rules

@@ -54,7 +54,7 @@
         "approver_verdict": {
           "type": ["string", "null"],
           "enum": ["APPROVE", "REQUEST_CHANGES", null],
-          "description": "Latest approver verdict for this gate, or null when the approver did not review it. Details are in the task file's stages.<stage>.review."
+          "description": "Latest approver verdict for this gate, or null when the approver did not review it. Details are in the task file's stages.<stage>.review (latest round)."
         }
       }
     },

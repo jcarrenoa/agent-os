@@ -35,7 +35,7 @@ Agent OS — Status
 ─────────────────────────────────────────
 Project:  [project_name]
 Stack:    [frontend] + [backend]
-Approver: [off | advisory | autonomous (max_revisions N)] — gates: [requirements, planning | —]
+Approver: [off | advisory | autonomous (max_revisions N) | unattended (max_revisions N)] — gates: [requirements, planning, design | —]
 Requirements format: [REQ | user stories]
 
 Pipeline State
@@ -56,13 +56,14 @@ Pipeline State
 ─────────────────────────────────────────
 Active Task: [TASK-NNN] — [title]
 
-  Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started] [approved by: human | approver] [approver: APPROVE | REQUEST_CHANGES, N revisions]
-  Planning:    [✓ | ⏳ | ⟳ | ○] [approved by ...] [approver: ...]
-  Design:      [✓ | ⏳ | ⟳ | ○] [approved by: human]
-  Development: [✓ | ⏳ | ⟳ | ○]
-  QA:          [✓ | ⏳ | ⟳ | ○]
+  Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started | ✗ blocked] [approved by: human | approver] [approver: APPROVE | REQUEST_CHANGES, round N, N auto revisions, N change requests] [unresolved: IDs]
+  Planning:    [✓ | ⏳ | ⟳ | ○ | ✗] [approved by ...] [approver: ...] [unresolved: ...]
+  Design:      [✓ | ⏳ | ⟳ | ○ | ✗] [approved by: human | approver (unattended)] [approver: ...]
+  Development: [✓ | ⏳ | ⟳ | ○ | ✗]
+  QA:          [✓ | ⏳ | ⟳ | ○ | ✗] [QA retries: N] [unresolved: IDs]
 
-  (Omit the "approved by" and "approver" parts when the stage has no approval or review.)
+  (Omit the "approved by", "approver", "unresolved" and "QA retries" parts when they do not apply.)
+  Approver decisions: [N — see `/agent-os:review`; omit when task.approver_decisions is empty]
 
   Requirements: [N captured] [+ N user stories, N acceptance criteria — user-stories only]
   Subtasks:     [N total, N done]

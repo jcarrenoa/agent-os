@@ -67,6 +67,8 @@ For each requirement in the task (`requirements` array) and, when `requirements_
 
 A story is covered only when all of its acceptance criteria are covered.
 
+Report one line per requirement and, with user stories, one line per story followed by one line per acceptance criterion (`US-001-AC1`, `US-001-AC2`, ...). Never group IDs into ranges or summaries ("US-001 to US-003: covered", "all criteria covered"): an ID without its own line counts as not verified.
+
 ### Step 2: Run the Test Suite
 
 Run the test command from `config.json`:
@@ -124,7 +126,8 @@ Status: [PASS | FAIL]
 - REQ-001 [must]: [covered | partial | missing] — [note]
 - REQ-002 [should]: [covered | partial | missing] — [note]
 - US-001 [must]: [covered | partial | missing]          ← user-stories only
-  - US-001-AC1: [covered | partial | missing] — [note]
+  - US-001-AC1: [covered | partial | missing] — [note]  ← one line per criterion, no ranges
+  - US-001-AC2: [covered | partial | missing] — [note]
 
 ### Issues Found
 
