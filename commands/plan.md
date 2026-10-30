@@ -1,6 +1,6 @@
 ---
 description: Run Stage 2 (Analysis & Planning) for the active task. Breaks approved requirements into subtasks with dependencies and risk analysis. Requires Stage 1 to be approved first.
-allowed-tools: [Read, Write, Glob, Grep, Bash]
+allowed-tools: [Read, Write, Glob, Grep, Bash, AskUserQuestion]
 ---
 
 # Agent OS — Stage 2: Planning
@@ -58,6 +58,7 @@ Without approver review, or once the plan is approved:
 1. Set `stages.planning.status = "done"`.
 2. Add `"planning"` to `stages_completed` in state.json.
 3. Update `state.json.current_stage = "design"`, `stage_status = "not_started"`.
+4. Tracker (only with `config.tracker`): run `create_subtasks` (`tracker-sync` skill → Create) when the task has an issue created by agent-os. Gated, never blocking.
 
 ## Report
 

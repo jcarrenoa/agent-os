@@ -1,6 +1,6 @@
 ---
 description: Run Stage 1 (Discovery & Requirements) for a task. Captures and structures requirements before any planning or implementation. Requires approval before planning can begin.
-argument-hint: "<task description>"
+argument-hint: "<task description | issue key or URL>"
 allowed-tools: [Read, Write, Glob, Grep, Bash, AskUserQuestion]
 ---
 
@@ -19,13 +19,14 @@ Task: $ARGUMENTS
    - If `current_stage = "discovery"` with `stage_status = "awaiting_approval"`: the stage is already done and awaiting approval. Show existing requirements and remind the user to run `/agent-os:approve`.
    - If `current_stage` is any other stage: tell the user which stage is active and offer to rollback.
 
-If creating a new task: create `TASK-NNN.json`, record its git baseline (Recording the git baseline in the `state-management` skill) and update `state.json`.
+If creating a new task: create `TASK-NNN.json`, record its git baseline (Recording the git baseline in the `state-management` skill) and update `state.json`. If any repo has `dirty` entries, show that section's one-line warning before anything else, in every mode. With `config.tracker` in `pull` or `both` mode, an issue key or URL as the argument fills the task from the issue (`tracker-sync` skill → Pull).
 
 ## Run Stage 1
 
 Read `${CLAUDE_PLUGIN_ROOT}/workflows/01-discovery.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Set `stages.discovery.status = "in_progress"` in the task file before spawning the agent.
+Tracker (only with `config.tracker`): fire the `start` route event (`tracker-sync` skill).
 Set `state.json.stage_status = "in_progress"`.
 
 ### Resolve Extensions

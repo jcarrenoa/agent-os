@@ -142,6 +142,9 @@ Return a structured document in this format:
 ### Summary
 [2-3 sentence description of what this task accomplishes]
 
+### Change Type
+[feat | fix | chore | refactor | docs | test] — [one line why]
+
 ### Functional Requirements          ← with "req"
 - REQ-001 [must]: ...
 - REQ-002 [should]: ...
@@ -184,6 +187,8 @@ Apply each proposed change, or state in one line why you did not. If a request i
 ```
 
 ## Your Rules
+
+- Classify the change type from the request, not from how big it is: `feat` adds a capability, `fix` corrects behavior that is wrong today, `refactor` changes no behavior, `chore` is tooling, configuration, dependencies or infrastructure, `docs` and `test` touch only documentation or tests. A task that mixes kinds takes the kind of its main requirement.
 
 - Do not propose solutions or implementations — that is for the planner and architect.
 - Do not make assumptions about the tech stack — read config.json.

@@ -22,6 +22,8 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/04-development.md` and follow it completel
 
 Set `stages.development.status = "in_progress"` and update state.json.
 
+Tracker (only with `config.tracker`): fire the `development` route event, and for the created sub-tasks of each agent run when that run starts (`tracker-sync` skill). Never blocks the stage.
+
 ### Resolve Extensions
 
 Before executing any subtasks, follow the `skill-resolution` skill for stage `development`:

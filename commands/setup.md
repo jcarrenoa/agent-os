@@ -225,6 +225,67 @@ Map the answers:
 
 The architecture gate (`design`) can be given to the approver only in unattended mode: `config.schema.json` rejects it in `gates` for any other mode.
 
+## Step 2.2: Tracker (optional)
+
+Connects Jira or Plane through an MCP server. Writes to the tracker follow the `tracker-sync` skill: moves along the route you confirm here are automatic; creating issues and commenting always ask first.
+
+1. AskUserQuestion, in `output_language`. With `--reconfigure`, mark the current value with "(actual)".
+   - Header: "Tracker" — "¿Conectar un gestor de tareas?"
+   - "No (Recomendado)" (description: "Sin integración; nada cambia.")
+   - "Jira" (description: "Jira Cloud por el servidor MCP de Atlassian.")
+   - "Plane" (description: "Plane por su servidor MCP oficial.")
+
+   "No" → no `tracker` key (with `--reconfigure`, remove it if it existed, after confirming). Continue to Step 2.5.
+2. **MCP server.** List the MCP tools available in this session and find the servers whose tools match the provider (`tracker-sync` → Tool Discovery). One match: use it. Several: ask which one. None: show the `claude mcp add` command for the provider from the README (Tracker section), tell the user to add it, authenticate with `/mcp`, and run `/agent-os:tracker setup` later. Do not write a `tracker` key; continue to Step 2.5.
+3. **Project.**
+   - Jira: get the accessible sites (one → use it; several → ask), keep `site_url` and `cloud_id`; list the visible projects and ask for the project (the 4 most relevant as options; the user can type the key). Read its issue types and propose `parent_type` (Story) and `subtask_type` (Sub-task, or the project's sub-task type); confirm in the next question.
+   - Plane: list the projects of the workspace and ask; keep `workspace_slug`, `project_id`, `project_identifier` and, for self-hosted instances, `base_url`.
+4. AskUserQuestion with:
+   - Header "Modo" — "¿Cómo se relacionan las tareas con el tablero?": "Ambos (Recomendado)" (description: "Empezar desde un issue existente o crear uno nuevo") / "Pull" (description: "Solo tomar issues que ya existen") / "Create" (description: "agent-os crea la Story y sus sub-tareas, siempre con tu aprobación").
+   - Jira only, header "Tipos" — "Tipos para crear: [parent_type] + [subtask_type]?": "Sí (Recomendado)" / "Cambiar" (then ask the user to type them).
+5. **Route of action**: run **Board Analysis** of the `tracker-sync` skill.
+6. Keep the result for Step 4: `"tracker": { provider, connection: "mcp", mcp: { server }, mode, jira | plane, pick_assigned_to_me: true, status_route }`. No credentials: the MCP server handles authentication.
+
+If any MCP call fails, say so, write no `tracker` key, suggest `/agent-os:tracker setup`, and continue: the tracker never blocks setup.
+
+## Step 2.3: Git Conventions (optional)
+
+Proposes how `/agent-os:commit` names branches and writes commit subjects. Nothing is fixed in the plugin: the conventions come from the project's own history. The repos are those of `/agent-os:commit` Step 1. Skip this step when none of them is a git repo.
+
+1. For each repo, read-only: `git -C <repo> log --no-merges -30 --format=%s`, `git -C <repo> branch -a --format=%(refname:short)` and `git -C <repo> log --merges -30 --format=%s`. First strip a trailing ` (#NN)` (the PR number GitHub adds on squash merges) from every subject. Infer, using the placeholders of `/agent-os:commit` (Step 1):
+   - `commit_pattern`: the shape of the subjects that carry an issue key, with every separator and space copied exactly as the project writes it, never normalized (`VR-91 | feat : Expand contact and group APIs (#12)` → `{key} | {type} : {summary}`; `VR-91 | feat: ...` → `{key} | {type}: {summary}`; `feat(VR-91): ...` → `{type}({key}): {summary}`).
+   - `commit_pattern_no_key`: the shape of the subjects without a key (`fix: ...` → `{type}: {summary}`).
+   - `commit_types`: the types used, most frequent first. `commit_language`: the language of the summaries.
+   - `branch_pattern`: the shape of the feature branches (`feature/VR-91-expand-contact` → `feature/{key}-{slug}`).
+   - `base_branch`: the long-lived branch feature branches are born from and merged into. Use the first signal that gives a clear answer:
+     1. Merge subjects: `Merge pull request #12 from org/feature/VR-91-... into qa`, `Merge branch 'feature/...' into qa`. Squash merges leave none, so this often finds nothing.
+     2. The branch model in the project's `CLAUDE.md` or `AGENTS.md` (workspace root and the repo), then the user's global `~/.claude/CLAUDE.md` and the files it imports, when they describe it ("feature/* branches from qa").
+     3. The repo itself: the remote default branch (`git -C <repo> symbolic-ref --short refs/remotes/origin/HEAD`), unless the feature branches diverge from another long-lived branch: for up to 5 `feature/*` branches, compare `git -C <repo> merge-base <feature> <candidate>` across the long-lived branches and take the one most of them diverge from most recently.
+
+     When none of them is clear, leave it `null` and say so.
+   - `protected_branches`: the long-lived branches that exist (`main`, `master`, `qa`, `dev`, `develop`, `staging`, and `release/*` when release branches exist).
+   - A field without a clear pattern in at least 5 subjects or branches stays empty (`—`): `/agent-os:commit` uses its default.
+2. Show the proposal, one column per repo (a single column when they agree), with an example subject for this project:
+   ```markdown
+   ### 🌿 Convenciones de git
+   | | backend | frontend |
+   |---|---|---|
+   | Rama base | qa | qa |
+   | Rama | feature/{key}-{slug} | feature/{key}-{slug} |
+   | Commit | {key} \| {type} : {summary} | {key} \| {type} : {summary} |
+   | Commit sin key | {type}: {summary} | {type}: {summary} |
+   | Tipos | feat, fix, chore | feat, fix, chore |
+   | Idioma | en | en |
+   | Protegidas | master, qa, dev, release/* | master, qa, dev |
+   | Ejemplo | VR-91 \| feat : Expand contact and group APIs | ... |
+   ```
+3. Ask both questions in one AskUserQuestion call, in `output_language` (with `--reconfigure`, mark the current values with "(actual)"):
+   - Header "Git" — "¿Usar estas convenciones para ramas y commits?": "Detectado (Recomendado)" (description: "Guarda la tabla tal cual") / "Editar" (description: "Escribe qué cambiar; te muestro la tabla de nuevo") / "Sin convención" (description: "Ramas feature/{key}-{slug} desde la rama actual y commits {type}: {summary}").
+   - Header "Commit" — "¿Hacer un commit local por repo al terminar QA (/agent-os:commit)? Nunca hace push.": "Sí, con aprobación (Recomendado)" (description: "Te pregunta antes de commitear") / "Sí, sin preguntar" (description: "Commitea al terminar QA; sigue sin hacer push") / "No" (description: "Lo lanzas tú con /agent-os:commit cuando quieras").
+4. Keep for Step 4:
+   - "Detectado" or the edited table → `config.git` with the values the repos share; the fields that differ go to `config.git.repos.<repo path>`. Empty fields are not written. "Sin convención" → no `git` key.
+   - "Sí, con aprobación" → `"agent-os:commit"` in `extensions.stages.qa.commands`; "Sí, sin preguntar" → `{ "name": "agent-os:commit", "auto": true }`; "No" → neither. Never add it twice; with `--reconfigure`, replace the existing entry.
+
 ## Step 2.5: Configure Extensions (optional)
 
 Run this step after receiving the user's answers from Step 2 but before writing any files.
@@ -307,7 +368,10 @@ After confirmation, create these files and directories:
     "output_language": "[en or es, default en]",
     "requirements_format": "[req | user-stories, from Step 2.1]"
   },
-  "approver": "[only if Step 2.1 enabled it: { enabled, mode, gates, max_revisions }]"
+  "approver": "[only if Step 2.1 enabled it: { enabled, mode, gates, max_revisions }]",
+  "tracker": "[only if Step 2.2 connected one: { provider, connection, mcp, mode, jira | plane, pick_assigned_to_me, status_route }]",
+  "git": "[only if Step 2.3 kept conventions: { base_branch, branch_pattern, commit_pattern, commit_pattern_no_key, commit_types, commit_language, protected_branches, repos? }]",
+  "extensions": "[from Step 2.5, plus agent-os:commit in stages.qa.commands if Step 2.3 enabled it]"
 }
 ```
 
@@ -403,6 +467,26 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | Commands post-QA [gate] | Siempre te piden aprobación |
 | Formato de requisitos | [REQ · or Historias de usuario] |
 
+### 🔗 Tracker
+| | |
+|---|---|
+| Gestor | [No conectado · or Jira / Plane por MCP (`server`)] |
+| Proyecto | [project key · or workspace / identifier · or —] |
+| Modo | [pull · create · both · or —] |
+| Ruta | [start → In Progress · development → … · qa → … · done_pipeline → … · blocked → … · or —] |
+| Escrituras | Mover por la ruta: automático · Crear y comentar: siempre con tu aprobación |
+
+(Omit every row but "Gestor" when no tracker is connected.)
+
+### 🌿 Git
+| | |
+|---|---|
+| Convenciones | [Detectadas · Por repo · Sin convención (valores por defecto)] |
+| Rama | [branch_pattern] desde [base_branch · la rama actual] |
+| Commit | [commit_pattern] · sin key: [commit_pattern_no_key] |
+| Protegidas | [protected_branches] |
+| Commit tras QA | [Con aprobación · Sin preguntar · No] — nunca hace push |
+
 ### ▶️ Próximos pasos
 | Comando | Para qué |
 |---|---|
@@ -410,6 +494,8 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | `/agent-os:discover "describe tu tarea"` | Empezar solo con Discovery |
 | `/agent-os:status` | Ver el estado actual |
 | `/agent-os:review` | Consola de aprobaciones (gate pendiente, veredicto del approver, historial) |
+| `/agent-os:start VR-123` · `/agent-os:tracker pick` | Empezar desde un issue (solo con tracker en pull o both) |
+| `/agent-os:commit` | Commit local por repo con las convenciones de git (nunca hace push) |
 ```
 
-To change these options later: `/agent-os:setup --reconfigure`, or edit `approver` and `preferences.requirements_format` in `.agent-os/config.json` (README → Approver).
+To change these options later: `/agent-os:setup --reconfigure`, or edit `approver` and `preferences.requirements_format` in `.agent-os/config.json` (README → Approver). The tracker: `/agent-os:tracker setup | map | off`.

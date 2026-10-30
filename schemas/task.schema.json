@@ -55,6 +55,11 @@
         }
       }
     },
+    "change_type": {
+      "type": "string",
+      "enum": ["feat", "fix", "chore", "refactor", "docs", "test"],
+      "description": "Kind of change, classified by the requirements-analyst and checked by the approver: feat = new capability; fix = corrects wrong behavior; refactor = no behavior change; chore = tooling, config, dependencies, infrastructure; docs = documentation only; test = tests only. Fills {type} in commit subjects."
+    },
     "requirements_format": {
       "type": "string",
       "enum": ["req", "user-stories"],
@@ -153,6 +158,94 @@
               }
             }
           }
+        }
+      }
+    },
+    "external": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "key", "origin"],
+      "description": "The tracker issue linked to this task (tracker-sync skill). Missing: no tracker issue.",
+      "properties": {
+        "provider": { "type": "string", "enum": ["jira", "plane"], "description": "Tracker." },
+        "key": { "type": "string", "description": "Issue key, e.g. VR-123 or REACH-12. Also used in branch names (feature/VR-123-...)." },
+        "id": { "type": "string", "description": "Tracker internal ID (Jira issue id, Plane work item UUID)." },
+        "url": { "type": "string", "description": "Browser URL of the issue." },
+        "origin": { "type": "string", "enum": ["pulled", "created"], "description": "pulled = existing issue the task started from; created = agent-os created it." },
+        "status": { "type": "string", "description": "Last status agent-os read or set." },
+        "existing_subtasks": {
+          "type": "array",
+          "description": "Sub-tasks the pulled issue already had, as reference for the planner.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "summary"],
+            "description": "One existing sub-task.",
+            "properties": {
+              "key": { "type": "string", "description": "Sub-task key." },
+              "summary": { "type": "string", "description": "Its title." },
+              "status": { "type": "string", "description": "Its status when pulled." }
+            }
+          }
+        },
+        "subtasks": {
+          "type": "object",
+          "description": "Sub-tasks agent-os created, by subtask ID: { \"SUB-01\": { key, id } }.",
+          "propertyNames": { "pattern": "^SUB-[0-9]+$" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key"],
+            "description": "One created sub-task.",
+            "properties": {
+              "key": { "type": "string", "description": "Sub-task key." },
+              "id": { "type": "string", "description": "Tracker internal ID." },
+              "status": { "type": "string", "description": "Last status agent-os set." }
+            }
+          }
+        },
+        "pending_writes": {
+          "type": "array",
+          "description": "Gated writes (create, comment) waiting for the user's approval, e.g. queued during an unattended run.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operation", "target"],
+            "description": "One queued write.",
+            "properties": {
+              "operation": { "type": "string", "enum": ["create_parent", "create_subtasks", "comment_commits"], "description": "What would be written." },
+              "target": { "type": "string", "description": "Issue key, SUB IDs, or 'parent'." },
+              "queued_at": { "type": "string", "format": "date-time", "description": "When it was queued." }
+            }
+          }
+        },
+        "sync_log": {
+          "type": "array",
+          "description": "Every write agent-os made to the tracker, in order. Shown in stage summaries and the final report.",
+          "items": { "$ref": "#/definitions/syncEntry" }
+        },
+        "sync_errors": {
+          "type": "array",
+          "description": "Tracker operations that failed or were skipped. /agent-os:tracker sync retries them. They never block the pipeline.",
+          "items": { "$ref": "#/definitions/syncEntry" }
+        }
+      }
+    },
+    "commits": {
+      "type": "array",
+      "description": "Local commits made for this task, written by /agent-os:commit (or another post-QA command). Used for the tracker comment.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repo", "branch", "hash", "subject"],
+        "description": "One commit.",
+        "properties": {
+          "repo": { "type": "string", "description": "Repository path relative to the workspace root ('.' for single)." },
+          "branch": { "type": "string", "description": "Branch the commit is on." },
+          "hash": { "type": "string", "pattern": "^[0-9a-f]{7,40}$", "description": "Commit hash." },
+          "subject": { "type": "string", "description": "First line of the commit message." },
+          "files": { "type": "array", "description": "Files in the commit.", "items": { "type": "string", "description": "File path." } },
+          "subtasks": { "type": "array", "description": "Subtask IDs the commit implements.", "items": { "type": "string", "description": "Subtask ID, e.g. SUB-01." } }
         }
       }
     },
@@ -273,6 +366,19 @@
     }
   },
   "definitions": {
+    "syncEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "event", "operation", "target", "result"],
+      "description": "One tracker operation.",
+      "properties": {
+        "at": { "type": "string", "format": "date-time", "description": "When it ran." },
+        "event": { "type": "string", "enum": ["pull", "start", "development", "qa", "done_pipeline", "blocked", "create_parent", "create_subtasks", "comment_commits", "retry"], "description": "Pipeline event that triggered it." },
+        "operation": { "type": "string", "enum": ["read", "transition", "create", "comment"], "description": "What was done." },
+        "target": { "type": "string", "description": "Issue or sub-task key." },
+        "result": { "type": "string", "description": "e.g. 'In Progress', 'created VR-130', or the error / skip reason (never a token)." }
+      }
+    },
     "finding": {
       "type": "object",
       "additionalProperties": false,

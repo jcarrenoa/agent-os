@@ -1,6 +1,6 @@
 ---
 description: Run Stage 5 (Testing & QA) for the active task. Verifies requirements coverage, runs tests, checks for regressions. Closes the task if all checks pass.
-allowed-tools: [Read, Write, Glob, Grep, Bash]
+allowed-tools: [Read, Write, Glob, Grep, Bash, AskUserQuestion]
 ---
 
 # Agent OS — Stage 5: QA
@@ -20,6 +20,8 @@ You are running Stage 5 (Testing & QA) of the agent-os pipeline.
 Read `${CLAUDE_PLUGIN_ROOT}/workflows/05-testing-qa.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Set `stages.qa.status = "in_progress"` and update state.json.
+
+Tracker (only with `config.tracker`): fire the `qa` route event (`tracker-sync` skill). Never blocks the stage.
 
 ### Resolve Extensions
 
@@ -46,6 +48,7 @@ No critical or major issues:
 5. **Post-QA commands**: In unattended approver mode, show the **Approver Decisions Report** (`approval-gates` skill) first. If the extension resolution result includes Post-QA commands, run them in the listed order:
    - Every command tagged `[gate]` (the default for any command not configured with `auto: true`): present an approval gate (approval-gates skill) before running it, in every approver mode, unattended included. The gate names the command and states that it may have external effects (push, deploy, publish, posting comments). Wait for the user's explicit approval; if declined, skip it and note it in the summary.
    - Only commands tagged `[auto]` run without a gate.
+5b. **Tracker** (only with `config.tracker`, `tracker-sync` skill): in unattended approver mode, the Pending Writes gate; then Comment Commits (gated, only if `task.commits` has entries); then the `done_pipeline` route event. Add the Tracker table to the completion output.
 6. Set `state.json`:
    ```json
    {

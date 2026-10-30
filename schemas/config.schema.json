@@ -5,6 +5,32 @@
   "type": "object",
   "required": ["project_id", "project_name", "created_at", "tech_stack"],
   "additionalProperties": false,
+  "definitions": {
+    "routeTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "description": "One tracker status.",
+      "properties": {
+        "status": { "type": "string", "description": "Status (Jira) or state (Plane) name, as shown on the board." },
+        "id": { "type": "string", "description": "Status / state ID, when known. Plane moves by state ID." }
+      }
+    },
+    "gitConventions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Git conventions of one repo; each field overrides the same field of config.git.",
+      "properties": {
+        "base_branch": { "type": ["string", "null"], "description": "Long-lived branch feature branches are born from (e.g. qa). null = branch from the current HEAD." },
+        "branch_pattern": { "type": "string", "pattern": "\\{(key|task)\\}", "description": "Feature branch name with placeholders {key}, {task}, {slug} (e.g. feature/{key}-{slug}). Must contain {key} or {task}." },
+        "commit_pattern": { "type": "string", "pattern": "\\{summary\\}", "description": "Commit subject when the task has an issue key. Placeholders {key}, {task}, {type}, {scope}, {summary} (e.g. '{key} | {type}: {summary}')." },
+        "commit_pattern_no_key": { "type": "string", "pattern": "\\{summary\\}", "description": "Commit subject when the task has no issue key (e.g. '{type}: {summary}')." },
+        "commit_types": { "type": "array", "minItems": 1, "description": "Allowed commit types, in order of preference.", "items": { "type": "string", "pattern": "^[a-z]+$", "description": "One type, e.g. feat." } },
+        "commit_language": { "type": "string", "pattern": "^[a-z]{2}$", "description": "Language of commit subjects and bodies (ISO 639-1, e.g. en)." },
+        "protected_branches": { "type": "array", "description": "Branches /agent-os:commit never commits on. A trailing * is a glob (release/*).", "items": { "type": "string", "description": "Branch name or glob." } }
+      }
+    }
+  },
   "properties": {
     "project_id": {
       "type": "string",
@@ -198,6 +224,126 @@
       },
       "else": {
         "properties": { "gates": { "items": { "enum": ["requirements", "planning"] } } }
+      }
+    },
+    "tracker": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional issue tracker integration (Jira or Plane), used only by the orchestrator through the tracker-sync skill. Missing: no tracker, nothing changes. Never contains credentials.",
+      "required": ["provider", "connection", "mode", "mcp", "status_route"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["jira", "plane"],
+          "description": "Which tracker."
+        },
+        "connection": {
+          "type": "string",
+          "enum": ["mcp"],
+          "description": "How agent-os talks to the tracker. Only mcp (the MCP server registered in Claude Code) is supported; a REST connection is not available yet."
+        },
+        "mcp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["server"],
+          "description": "The MCP server that exposes the tracker tools.",
+          "properties": {
+            "server": {
+              "type": "string",
+              "description": "Name the MCP server is registered with in Claude Code (its tools are named mcp__<server>__<tool>). Tools are discovered by this prefix at run time."
+            }
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["pull", "create", "both"],
+          "description": "pull = take existing issues (/agent-os:start VR-123, /agent-os:tracker pick); create = agent-os creates the parent issue after the requirements and one sub-task per subtask after the plan, each after the user approves it; both = either, per task."
+        },
+        "jira": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["site_url", "project_key"],
+          "description": "Jira Cloud settings. Required when provider = jira.",
+          "properties": {
+            "site_url": { "type": "string", "description": "Site URL, e.g. https://acme.atlassian.net." },
+            "cloud_id": { "type": "string", "description": "Atlassian cloud ID of the site, discovered in setup (some MCP tools need it). Not a secret." },
+            "project_key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$", "description": "Project key, e.g. VR." },
+            "parent_type": { "type": "string", "default": "Story", "description": "Issue type of the parent issue created in create mode." },
+            "subtask_type": { "type": "string", "default": "Sub-task", "description": "Issue type of the sub-tasks created in create mode." },
+            "role_field": { "type": "string", "enum": ["label", "component"], "default": "label", "description": "How the developer role (backend / frontend) is written on created sub-tasks." }
+          }
+        },
+        "plane": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workspace_slug", "project_id"],
+          "description": "Plane settings. Required when provider = plane.",
+          "properties": {
+            "base_url": { "type": "string", "default": "https://app.plane.so", "description": "Plane web URL, for links (self-hosted instances use their own)." },
+            "workspace_slug": { "type": "string", "description": "Workspace slug, as in the URL." },
+            "project_id": { "type": "string", "description": "Project ID (UUID)." },
+            "project_identifier": { "type": "string", "description": "Project identifier used in work item keys, e.g. REACH for REACH-12." }
+          }
+        },
+        "pick_assigned_to_me": {
+          "type": "boolean",
+          "default": true,
+          "description": "pick lists only the issues assigned to the current user."
+        },
+        "status_route": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Route of action: the tracker status each pipeline event moves the issue (and, in create mode, its sub-tasks) to. null or missing = that event does not move anything. Confirmed by the user in setup or /agent-os:tracker map.",
+          "properties": {
+            "intake": {
+              "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/routeTarget" }],
+              "description": "Status pick lists issues from (not a move), e.g. To Do."
+            },
+            "start": {
+              "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/routeTarget" }],
+              "description": "Moved to when discovery starts on the issue, e.g. In Progress."
+            },
+            "development": {
+              "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/routeTarget" }],
+              "description": "Moved to when development starts (sub-tasks: when their developer run starts)."
+            },
+            "qa": {
+              "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/routeTarget" }],
+              "description": "Moved to when QA starts."
+            },
+            "done_pipeline": {
+              "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/routeTarget" }],
+              "description": "Moved to when QA approves. Usually the column before Done (e.g. Code Review), because the PR is still missing. Done only if the user mapped it."
+            },
+            "blocked": {
+              "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/routeTarget" }],
+              "description": "Moved to when the stage becomes blocked."
+            }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "provider": { "const": "jira" } } }, "then": { "required": ["jira"] } },
+        { "if": { "properties": { "provider": { "const": "plane" } } }, "then": { "required": ["plane"] } }
+      ]
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional git conventions of the project, proposed by /agent-os:setup from the commit history and used by /agent-os:commit. Missing fields take the defaults listed in /agent-os:commit. Nothing about branches or commit formats is fixed in the plugin.",
+      "properties": {
+        "base_branch": { "type": ["string", "null"], "description": "Long-lived branch feature branches are born from (e.g. qa). null = branch from the current HEAD." },
+        "branch_pattern": { "type": "string", "pattern": "\\{(key|task)\\}", "description": "Feature branch name with placeholders {key}, {task}, {slug} (e.g. feature/{key}-{slug}). Must contain {key} or {task}." },
+        "commit_pattern": { "type": "string", "pattern": "\\{summary\\}", "description": "Commit subject when the task has an issue key. Placeholders {key}, {task}, {type}, {scope}, {summary} (e.g. '{key} | {type}: {summary}')." },
+        "commit_pattern_no_key": { "type": "string", "pattern": "\\{summary\\}", "description": "Commit subject when the task has no issue key (e.g. '{type}: {summary}')." },
+        "commit_types": { "type": "array", "minItems": 1, "description": "Allowed commit types, in order of preference.", "items": { "type": "string", "pattern": "^[a-z]+$", "description": "One type, e.g. feat." } },
+        "commit_language": { "type": "string", "pattern": "^[a-z]{2}$", "description": "Language of commit subjects and bodies (ISO 639-1, e.g. en)." },
+        "protected_branches": { "type": "array", "description": "Branches /agent-os:commit never commits on. A trailing * is a glob (release/*).", "items": { "type": "string", "description": "Branch name or glob." } },
+        "repos": {
+          "type": "object",
+          "description": "Per-repo overrides, keyed by repo path relative to the workspace root (a workspace_paths value, or '.'). Used when the repos follow different conventions.",
+          "additionalProperties": { "$ref": "#/definitions/gitConventions" }
+        }
       }
     },
     "extensions": {
