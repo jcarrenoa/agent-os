@@ -119,7 +119,7 @@ An ADR is required when:
 Create an ADR file for each decision:
 File: `.agent-os/decisions/DEC-NNN.json`
 
-Use the schema in `${CLAUDE_PLUGIN_ROOT}/schemas/decision.schema.json`.
+Use the schema in `${CLAUDE_PLUGIN_ROOT}/schemas/decision.schema.json`. Create every ADR with `"status": "proposed"` and `"accepted_at": null`: it becomes `accepted` only when the design is approved. If it replaces an earlier ADR, list that ID in `supersedes`; never edit the earlier ADR yourself.
 
 ### Step 6: Identify Risks
 

@@ -129,6 +129,33 @@
         }
       }
     },
+    "git_baseline": {
+      "type": "object",
+      "description": "Uncommitted changes that existed when the task was created, per repo (state-management skill, Recording the git baseline). Post-QA commands use it to exclude pre-existing work: a path still dirty with the same blob is not the task's change. Keys are repo paths relative to the workspace root ('.' for the root). Excludes .agent-os and .codegraph.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["head", "dirty"],
+        "description": "Baseline of one repo.",
+        "properties": {
+          "head": { "type": ["string", "null"], "pattern": "^[0-9a-f]{7,64}$", "description": "HEAD commit when the task was created, or null when the repo had no commits." },
+          "dirty": {
+            "type": "array",
+            "description": "Modified, added, renamed, deleted or untracked files at that moment.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "blob"],
+              "description": "One uncommitted file.",
+              "properties": {
+                "path": { "type": "string", "description": "Path relative to the repo root." },
+                "blob": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40,64}$", "description": "git hash-object of the file content at that moment, or null when the file was deleted." }
+              }
+            }
+          }
+        }
+      }
+    },
     "approver_decisions": {
       "type": "array",
       "description": "Every decision the approver took instead of a human (autonomous and unattended modes), in order. Shown in the final 'Approver decisions' report and in /agent-os:review.",

@@ -95,6 +95,7 @@ RISKS
    - Unattended approver mode with `"design"` in `config.approver.gates` (and no human change request on the stage): the approver reviews the design before the gate (Approver Review in the `approval-gates` skill, target `design`, producing agent `architect`). It writes `task.stages.design.review`, may re-run the architect, and approves with `approved_by = "approver"` or blocks the stage.
 4. When approved:
    - `task.stages.design.status = "done"`, `approved_at = now`, `approved_by = "human" | "approver"` (`approver` only in unattended mode).
+   - Every ADR in `task.decisions` becomes `accepted`, and the ADRs in their `supersedes` become `superseded` (How to Record an Approval in the `approval-gates` skill), for both kinds of approval.
    - Add `"design"` to `stages_completed`.
    - `state.json.current_stage = "development"`, `stage_status = "not_started"`.
 

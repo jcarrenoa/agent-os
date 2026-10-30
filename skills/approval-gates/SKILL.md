@@ -1,7 +1,7 @@
 ---
 name: approval-gates
 description: This skill should be used whenever agent-os needs to determine whether a stage transition requires human approval, how to request it, how to run the optional approver review before a gate, and how to record the outcome. Use it before advancing from any stage to the next.
-version: 1.2.0
+version: 1.2.1
 ---
 
 # Approval Gates Protocol
@@ -73,7 +73,7 @@ When `auto_revisions` has reached `max_revisions` and the latest review (or QA r
 
 ### Approver Decisions
 
-Every decision the approver takes instead of a human (autonomous and unattended) is appended to `task.approver_decisions`: `{ at, stage, kind, decision, reason, ref }`, where `ref` says where the details are (`stages.planning.review (round 2)`, `open_questions Q-3`, `stages.qa.issues`). Unattended mode ends with the Approver Decisions Report.
+Every decision the approver takes instead of a human (autonomous and unattended) is appended to `task.approver_decisions`: `{ at, stage, kind, decision, reason, ref }`, where `ref` says where the details are (`stages.planning.review (round 2)`, `open_questions Q-3`, `stages.qa.issues`). One entry per decision: each answered question, each revision run and each gate is its own entry, never one entry for several. Unattended mode ends with the Approver Decisions Report.
 
 ## Clarifying Questions (unattended only)
 
@@ -96,18 +96,30 @@ When QA returns `REQUEST_CHANGES` (critical issues):
 
 ## Approver Decisions Report
 
-At the end of an unattended run (task done or blocked), and in `/agent-os:review`, show `task.approver_decisions` (labels in `output_language`):
+At the end of an unattended run (task done or blocked), and in `/agent-os:review`, show `task.approver_decisions` as this table (labels in `output_language`). It is always a table with one row per entry, in order: never prose, never a summary such as "answered 5 questions, see open_questions". The user must be able to review every decision without opening the task file, so each `Decisión` cell carries the content, read from the place `ref` points to:
+- `question`: `Q-N: <question> → <resolution>` (from `open_questions`).
+- `gate`, `revision`: the verdict and the finding IDs of that round with their severity (`REQUEST_CHANGES: R1-F-01 blocker, R1-F-02 major`).
+- `scope-change`: `ORIGINAL_SCOPE` or `EXPAND` and the scope the planner proposed.
+- `qa-retry`: the `critical` and `major` issue IDs of `stages.qa.issues`.
+- `continue-unresolved`, `blocked`: every unresolved ID with its severity.
 
 ```markdown
 ### 🤖 Decisiones del approver
 | Fecha | Etapa | Tipo | Decisión | Motivo | Detalle en |
 |---|---|---|---|---|---|
-| 2026-10-29 10:12 | discovery | question | Q-2: borrado lógico | ... | `open_questions Q-2` |
+| 2026-10-29 10:12 | discovery | question | Q-2: ¿Borrado físico o lógico de contactos? → Lógico (DeletedAt) | ... | `open_questions Q-2` |
+| 2026-10-29 10:31 | planning | revision | REQUEST_CHANGES: R1-F-01 major, R1-F-02 minor | ... | `stages.planning.review (round 1)` |
 | 2026-10-29 10:40 | design | gate | APPROVE | ... | `stages.design.review (round 1)` |
 
-Sin resolver: [stage: IDs from unresolved_findings, or "ninguno"]
+Sin resolver:
+| ID | Etapa | Severidad | Hallazgo |
+|---|---|---|---|
+| R2-F-03 | planning | major | [one-line finding] |
+
 Commands post-QA: [name — ejecutado automáticamente ([auto]) | aprobado por ti | rechazado por ti]
 ```
+
+The `Sin resolver` table has one row per ID in every stage's `unresolved_findings`, with the finding (or QA issue) text; write `Sin resolver: ninguno` when there are none.
 
 ## Revision Runs
 
@@ -196,6 +208,7 @@ When a gate is reached, do the following:
 This is the only way an approval is written. `/agent-os:approve`, `/agent-os:review`, an explicit "yes" in the conversation, and an approver `APPROVE` in autonomous or unattended mode all use it:
 
 1. Update the task stage record: `"status": "done"`, `"approved_at": "<now>"`, `"approved_by": "human"` (or `"approver"` for an approver approval; `"approver"` for `design` only in unattended mode).
+   - For `design`, whoever approved: for each ID in `task.decisions`, set `.agent-os/decisions/DEC-NNN.json` to `"status": "accepted"` and `"accepted_at": "<now>"`; then, for each ID in its `supersedes`, set that earlier ADR to `"status": "superseded"` and `"superseded_by"` to the new ID. An approved design never leaves its ADRs `proposed`.
 2. Add the stage to `stages_completed` in state.json.
 3. Clear `pending_approval` in state.json.
 4. Set `current_stage` to the next stage and `stage_status` to `"not_started"`.

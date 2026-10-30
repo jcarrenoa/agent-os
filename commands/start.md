@@ -30,7 +30,7 @@ When `config.approver.enabled` and `config.approver.mode = "unattended"`, tell t
 
 Read `.agent-os/tasks/` to determine the next task ID (TASK-001, TASK-002, etc.).
 
-Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill).
+Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill), then record its git baseline (Recording the git baseline in the same skill).
 
 Update `.agent-os/state.json`:
 ```json
