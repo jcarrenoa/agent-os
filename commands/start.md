@@ -34,13 +34,13 @@ Only when `config.tracker` exists. Every tracker operation follows the `tracker-
 
 ## Unattended Mode
 
-When `config.approver.enabled` and `config.approver.mode = "unattended"`, tell the user once at the start: "Modo unattended: el approver decide las preguntas, los gates [list config.approver.gates] y los reintentos de QA. Solo te preguntaré por los commands post-QA marcados [gate]." Then run every stage without stopping, except when a stage becomes `blocked` (Exhausted Revisions in the `approval-gates` skill): show the blocker and the Approver Decisions Report, and stop.
+When `config.approver.enabled` and `config.approver.mode = "unattended"`, tell the user once, right after Step 1 creates the task (after the git baseline warning, if any): "Modo unattended: el approver decide las preguntas, los gates [list config.approver.gates] y los reintentos de QA. Solo te preguntaré por los commands post-QA marcados [gate]." Then run every stage without stopping, except when a stage becomes `blocked` (Exhausted Revisions in the `approval-gates` skill): show the blocker and the Approver Decisions Report, and stop.
 
 ## Step 1: Create Task
 
 Read `.agent-os/tasks/` to determine the next task ID (TASK-001, TASK-002, etc.).
 
-Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill), then record its git baseline (Recording the git baseline in the same skill). If the input is a tracker issue, fill `title`, `description` and `external` from it (`tracker-sync` → Pull); the requirements-analyst then receives that description verbatim as the task description.
+Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill), then record its git baseline (Recording the git baseline in the same skill). If any repo has `dirty` entries, show that section's one-line warning before anything else, as its own line, in every mode (unattended included). If the input is a tracker issue, fill `title`, `description` and `external` from it (`tracker-sync` → Pull); the requirements-analyst then receives that description verbatim as the task description.
 
 Update `.agent-os/state.json`:
 ```json

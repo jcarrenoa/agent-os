@@ -19,7 +19,7 @@ Task: $ARGUMENTS
    - If `current_stage = "discovery"` with `stage_status = "awaiting_approval"`: the stage is already done and awaiting approval. Show existing requirements and remind the user to run `/agent-os:approve`.
    - If `current_stage` is any other stage: tell the user which stage is active and offer to rollback.
 
-If creating a new task: create `TASK-NNN.json`, record its git baseline (Recording the git baseline in the `state-management` skill) and update `state.json`. With `config.tracker` in `pull` or `both` mode, an issue key or URL as the argument fills the task from the issue (`tracker-sync` skill → Pull).
+If creating a new task: create `TASK-NNN.json`, record its git baseline (Recording the git baseline in the `state-management` skill) and update `state.json`. If any repo has `dirty` entries, show that section's one-line warning before anything else, in every mode. With `config.tracker` in `pull` or `both` mode, an issue key or URL as the argument fills the task from the issue (`tracker-sync` skill → Pull).
 
 ## Run Stage 1
 

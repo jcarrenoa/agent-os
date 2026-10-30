@@ -1,7 +1,7 @@
 ---
 name: approval-gates
 description: This skill should be used whenever agent-os needs to determine whether a stage transition requires human approval, how to request it, how to run the optional approver review before a gate, and how to record the outcome. Use it before advancing from any stage to the next.
-version: 1.3.0
+version: 1.3.1
 ---
 
 # Approval Gates Protocol
@@ -73,7 +73,7 @@ When `auto_revisions` has reached `max_revisions` and the latest review (or QA r
 
 ### Approver Decisions
 
-Every decision the approver takes instead of a human (autonomous and unattended) is appended to `task.approver_decisions`: `{ at, stage, kind, decision, reason, ref }`, where `ref` says where the details are (`stages.planning.review (round 2)`, `open_questions Q-3`, `stages.qa.issues`). One entry per decision: each answered question, each revision run and each gate is its own entry, never one entry for several. Unattended mode ends with the Approver Decisions Report.
+Every decision the approver takes instead of a human (autonomous and unattended) is appended to `task.approver_decisions`: `{ at, stage, kind, decision, reason, ref }`, where `at` is the exact time of the decision (read the clock, e.g. `date -u +%Y-%m-%dT%H:%M:%SZ`; never estimate it) and `ref` says where the details are (`stages.planning.review (round 2)`, `open_questions Q-3`, `stages.qa.issues`). One entry per decision: each answered question, each revision run and each gate is its own entry, never one entry for several. Unattended mode ends with the Approver Decisions Report.
 
 ## Clarifying Questions (unattended only)
 
@@ -96,7 +96,7 @@ When QA returns `REQUEST_CHANGES` (critical issues):
 
 ## Approver Decisions Report
 
-At the end of an unattended run (task done or blocked), and in `/agent-os:review`, show `task.approver_decisions` as this table (labels in `output_language`). It is always a table with one row per entry, in order: never prose, never a summary such as "answered 5 questions, see open_questions". The user must be able to review every decision without opening the task file, so each `Decisión` cell carries the content, read from the place `ref` points to:
+At the end of an unattended run (task done or blocked), and in `/agent-os:review`, show `task.approver_decisions` as this table (labels in `output_language`). It is always a table with one row per entry, in order: never prose, never a summary such as "answered 5 questions, see open_questions". The user must be able to review every decision without opening the task file, so each `Decisión` cell carries the content, read from the place `ref` points to. `Fecha` is the entry's `at` as `YYYY-MM-DD HH:MM`; for an entry without `at`, the time recorded where `ref` points (`stages.<stage>.review.reviewed_at`, `open_questions[].resolved_at`). Never approximate a time (`16:2x`) or invent one. The `Decisión` cell, by kind:
 - `question`: `Q-N: <question> → <resolution>` (from `open_questions`).
 - `gate`, `revision`: the verdict and the finding IDs of that round with their severity (`REQUEST_CHANGES: R1-F-01 blocker, R1-F-02 major`).
 - `scope-change`: `ORIGINAL_SCOPE` or `EXPAND` and the scope the planner proposed.
