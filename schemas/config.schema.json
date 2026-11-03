@@ -230,12 +230,18 @@
       "type": "object",
       "additionalProperties": false,
       "description": "Optional issue tracker integration (Jira or Plane), used only by the orchestrator through the tracker-sync skill. Missing: no tracker, nothing changes. Never contains credentials.",
-      "required": ["provider", "connection", "mode", "mcp", "status_route"],
+      "required": ["provider", "connection", "mode", "mcp"],
       "properties": {
         "provider": {
           "type": "string",
           "enum": ["jira", "plane"],
           "description": "Which tracker."
+        },
+        "access": {
+          "type": "string",
+          "enum": ["read", "write"],
+          "default": "write",
+          "description": "What agent-os may do in the tracker. read = only reads issues and statuses: it creates, comments and moves nothing, mode must be pull and status_route is not needed. write = creates and comments, each after a gate, and moves issues along status_route. Missing means write, so existing configs do not change. Not a credential: the MCP server holds the authentication."
         },
         "connection": {
           "type": "string",
@@ -268,8 +274,8 @@
             "site_url": { "type": "string", "description": "Site URL, e.g. https://acme.atlassian.net." },
             "cloud_id": { "type": "string", "description": "Atlassian cloud ID of the site, discovered in setup (some MCP tools need it). Not a secret." },
             "project_key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$", "description": "Project key, e.g. VR." },
-            "parent_type": { "type": "string", "default": "Story", "description": "Issue type of the parent issue created in create mode." },
-            "subtask_type": { "type": "string", "default": "Sub-task", "description": "Issue type of the sub-tasks created in create mode." },
+            "parent_type": { "type": "string", "description": "Issue type of the parent issue created in create mode, as the project names it (it can be localized). No default: read from the project in setup, and asked for before creating when missing." },
+            "subtask_type": { "type": "string", "description": "Issue type of the sub-tasks created in create mode, as the project names it (it can be localized). No default: read from the project in setup, and asked for before creating when missing." },
             "role_field": { "type": "string", "enum": ["label", "component"], "default": "label", "description": "How the developer role (backend / frontend) is written on created sub-tasks." }
           }
         },
@@ -324,7 +330,12 @@
       },
       "allOf": [
         { "if": { "properties": { "provider": { "const": "jira" } } }, "then": { "required": ["jira"] } },
-        { "if": { "properties": { "provider": { "const": "plane" } } }, "then": { "required": ["plane"] } }
+        { "if": { "properties": { "provider": { "const": "plane" } } }, "then": { "required": ["plane"] } },
+        {
+          "if": { "required": ["access"], "properties": { "access": { "const": "read" } } },
+          "then": { "properties": { "mode": { "const": "pull" } } },
+          "else": { "required": ["status_route"] }
+        }
       ]
     },
     "git": {

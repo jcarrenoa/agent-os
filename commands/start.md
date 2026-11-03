@@ -24,12 +24,12 @@ After confirming `.agent-os/config.json` exists, read `preferences.output_langua
 
 ## Tracker
 
-Only when `config.tracker` exists. Every tracker operation follows the `tracker-sync` skill, runs here in the main session (never in a subagent), and never blocks the pipeline: a failure is recorded in `task.external.sync_errors` and the stage continues.
+Only when `config.tracker` exists. Before any tracker operation, read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md` and follow it. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first. Every tracker operation runs here in the main session (never in a subagent), and never blocks the pipeline: a failure is recorded in `task.external.sync_errors` and the stage continues.
 
 - **Issue as input**: if the argument is an issue key or URL (`tracker-sync` → Pull) and the mode allows pull, read the issue in Step 1: the task's `title` and `description` (verbatim) come from it and `task.external` links it. In `create` mode, tell the user that pull is not enabled and treat the argument as a description.
-- **Route events** (fire them at these points): `start` when Stage 1 starts, `development` when Stage 4 starts (and per created sub-task when its developer run starts), `qa` when Stage 5 starts, `done_pipeline` after the post-QA commands of an approved QA, `blocked` whenever a stage becomes `blocked`.
+- **Route events** (none with `access: read`; otherwise fire them at these points): `start` when Stage 1 starts, `development` when Stage 4 starts (and per created sub-task when its developer run starts), `qa` when Stage 5 starts, `done_pipeline` last of all after an approved QA (Stage 5), `blocked` whenever a stage becomes `blocked`.
 - **Create** (`create` or `both`, task not pulled): `create_parent` after the requirements are approved, `create_subtasks` after the plan is approved. Both are gated (in unattended mode, queued for the end).
-- **Comments**: Comment Commits after the post-QA commands.
+- **Comments**: Comment Commits after the post-QA commands (in unattended mode, queued for the same end-of-run gate).
 - Each stage summary lists that stage's tracker writes in one line; the completion report has the Tracker table.
 
 ## Unattended Mode
@@ -127,7 +127,7 @@ Without approver review, or once approved:
 - Add `"planning"` to `stages_completed` in state.json.
 - Update `current_stage = "design"`.
 
-Tracker: run `create_subtasks` (`tracker-sync` → Create) when the task has an issue created by agent-os.
+Tracker: run `create_subtasks` (`tracker-sync` → Create) when the task has an issue created by agent-os, or its `create_parent` is queued.
 
 ---
 
@@ -229,8 +229,11 @@ After the agent returns:
   - Add `"qa"` to `stages_completed`
   - Set `task.status = "done"`, `task.completed_at = now`
   - In unattended mode, show the **Approver Decisions Report** (`approval-gates` skill) first, so the user sees what was decided before any command question.
-  - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs, in every approver mode, unattended included; only commands tagged `[auto]` (configured with `auto: true`) run without one
-  - Tracker (`tracker-sync`): in unattended mode, the Pending Writes gate; then Comment Commits (gated); then the `done_pipeline` route event
+  - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs, in every approver mode, unattended included; only commands tagged `[auto]` (configured with `auto: true`) run without one. If a command that ran fails, whichever its tag, follow **Post-QA Command Failures** in the workflow
+  - Tracker: if you have not read the `tracker-sync` skill in this run, read it first (path in the Tracker section above). Then, exactly in this order, each finished before the next:
+    1. Comment Commits: its gate and its comments. In unattended mode it only queues the write.
+    2. Unattended mode only: the Pending Writes gate and its writes.
+    3. The `done_pipeline` route event (none with `access: read`), never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
   - Set `state.json: current_stage = "idle", active_task_id = null`
   - Show completion summary
 
@@ -257,6 +260,7 @@ Files modified: [N files]
 Tests: [N passed]
 Decisions recorded: [DEC-NNN, ...]
 Tracker: [KEY → status · N errores (/agent-os:tracker sync) · omit without tracker]
+Post-QA failures: [⚠ command — reason, per entry of task.post_qa_failures · only when `held_done_pipeline` is set: issue not moved: /agent-os:tracker sync · omit when empty]
 
 Run `/agent-os:status` to view the project state.
 ─────────────────────────────────────────

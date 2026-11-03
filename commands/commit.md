@@ -1,7 +1,7 @@
 ---
-description: Commit the changes of the active (or last finished) task, one local commit per repo, on a feature branch named by the project's git conventions. Never pushes. Can run as a post-QA command.
+description: Commit the changes of the active (or last finished) task, one local commit per repo, on a feature branch named by the project's git conventions. Never pushes. Can run as a post-QA command. With a tracker, run directly it also offers the commits comment, always with approval.
 argument-hint: "[ISSUE-KEY] (e.g. VR-123; defaults to the task's tracker key, then its TASK-NNN ID)"
-allowed-tools: [Bash, Read, Write]
+allowed-tools: [Bash, Read, Write, Edit, AskUserQuestion]
 ---
 
 # Agent OS — Commit
@@ -85,7 +85,7 @@ Read the task file again and set `commits` to the entries of earlier runs (keep 
 { "repo": "reach-backend", "branch": "feature/VR-91-expand-contact-group-apis", "hash": "a1b2c3d", "subject": "VR-91 | feat: Expand contact and group APIs", "files": ["src/Contacts/ContactController.cs"], "subtasks": ["SUB-01", "SUB-02"] }
 ```
 
-`repo` is the repo path, the same value as the `git_baseline` key (`"reach-backend"`; `"."` for the root), never the role, `hash` the short hash (`rev-parse --short HEAD`), `files` the committed paths (`show --name-only --format= HEAD`). Change no other field. The tracker's Comment Commits (`tracker-sync` skill) reads this list.
+`repo` is the repo path, the same value as the `git_baseline` key (`"reach-backend"`; `"."` for the root), never the role, `hash` the short hash (`rev-parse --short HEAD`), `files` the committed paths (`show --name-only --format= HEAD`), `subtasks` the IDs of the subtasks listed in that commit's body (Step 2.6; `[]` when the task has none). Change no other field. The tracker's Comment Commits (`tracker-sync` skill) reads this list. If the task file cannot be written, say so in the report and list the hashes: those commits cannot be commented until they are recorded.
 
 ## Step 4: Report
 
@@ -102,3 +102,11 @@ Nada se ha subido al remoto. Para publicar: `git -C <repo> push -u origin <rama>
 ```
 
 Under the table, list every warning: stacked branches, branches not born from `base_branch`, files excluded as secrets or tooling, pre-task changes left out or mixed in, type fallbacks, and hook output.
+
+## Step 5: Tracker Comment
+
+Only with `config.tracker`. Do these in order:
+
+1. Read `.agent-os/state.json` and the task file again. If `current_stage = "qa"`, `active_task_id` is this task and `stages.qa.status = "done"`, this run is a post-QA command: stop here, and do not show or offer any comment. The calling command runs Comment Commits right after its post-QA commands.
+2. Otherwise, read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md`. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
+3. With `tracker.access = "read"`, follow **Read-Only Access** in that skill: nothing is offered. Otherwise, run **Comment Commits** of that skill as Manual, for this task, also when this run created no commit: earlier commits may still be pending. It always asks before writing, and a failure is recorded for `/agent-os:tracker sync` without affecting the commits already made.

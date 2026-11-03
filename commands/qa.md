@@ -21,7 +21,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/05-testing-qa.md` and follow it completely
 
 Set `stages.qa.status = "in_progress"` and update state.json.
 
-Tracker (only with `config.tracker`): fire the `qa` route event (`tracker-sync` skill). Never blocks the stage.
+Tracker (only with `config.tracker` and `access` not `read`): fire the `qa` route event (`tracker-sync` skill). Never blocks the stage.
 
 ### Resolve Extensions
 
@@ -48,7 +48,13 @@ No critical or major issues:
 5. **Post-QA commands**: In unattended approver mode, show the **Approver Decisions Report** (`approval-gates` skill) first. If the extension resolution result includes Post-QA commands, run them in the listed order:
    - Every command tagged `[gate]` (the default for any command not configured with `auto: true`): present an approval gate (approval-gates skill) before running it, in every approver mode, unattended included. The gate names the command and states that it may have external effects (push, deploy, publish, posting comments). Wait for the user's explicit approval; if declined, skip it and note it in the summary.
    - Only commands tagged `[auto]` run without a gate.
-5b. **Tracker** (only with `config.tracker`, `tracker-sync` skill): in unattended approver mode, the Pending Writes gate; then Comment Commits (gated, only if `task.commits` has entries); then the `done_pipeline` route event. Add the Tracker table to the completion output.
+   - If a command that ran fails, whichever its tag, follow **Post-QA Command Failures** in the workflow.
+5b. **Tracker** (only with `config.tracker`). First read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md`, resolving the path as in Run Stage 5 if it is not absolute. Then, exactly in this order, each finished before the next:
+   1. Comment Commits: its gate and its comments. In unattended approver mode it only queues the write.
+   2. Unattended approver mode only: the Pending Writes gate and its writes.
+   3. The `done_pipeline` route event (none with `access: read`), never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
+
+   Add the Tracker table to the completion output.
 6. Set `state.json`:
    ```json
    {
@@ -92,6 +98,7 @@ Pipeline:
   ✓ QA          — [N tests passed]
 
 Decisions: [DEC-NNN, ...]
+Post-QA failures: [⚠ command — reason, per entry of task.post_qa_failures · only when `held_done_pipeline` is set: issue not moved: /agent-os:tracker sync · omit when empty]
 
 Run `/agent-os:status` for full history.
 ─────────────────────────────────────────

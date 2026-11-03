@@ -1,11 +1,11 @@
 ---
-description: Issue tracker integration (Jira or Plane over MCP). Without arguments shows the configuration and the active task's link. Subcommands - setup (connect or change the tracker), map (re-analyse the board columns and confirm the route of action), pick (choose an issue to start a task from), sync (retry failed operations and pending writes), off (disconnect).
-argument-hint: "[setup | map | pick | sync | off]"
+description: Issue tracker integration (Jira or Plane over MCP). Without arguments shows the configuration and the active task's link. Subcommands - setup (connect or change the tracker), map (re-analyse the board columns and confirm the route of action), pick (choose an issue to start a task from), sync (retry failed operations and pending writes, also of finished tasks), owner (the name that closes the commits comments), off (disconnect).
+argument-hint: "[setup | map | pick | sync [TASK-NNN] | owner [name] | off]"
 ---
 
 # Agent OS — Tracker
 
-Write everything in `preferences.output_language`. Follow the `tracker-sync` skill for every tracker operation.
+Write everything in `preferences.output_language`. Before any tracker operation, read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md` and follow it. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 ## Pre-Check
 
@@ -19,11 +19,14 @@ Write everything in `preferences.output_language`. Follow the `tracker-sync` ski
 ## 🔗 Tracker — [Jira | Plane] por MCP (`[mcp.server]`)
 | | |
 |---|---|
+| Acceso | [Solo lectura · Lectura y escritura, also when `access` is missing] |
 | Proyecto | [jira.project_key + site_url · or plane workspace_slug / project_identifier] |
 | Modo | [pull · create · both] |
 | Tarea activa | [TASK-NNN → KEY (url), estado · or "sin issue"] |
 | Errores pendientes | [N · /agent-os:tracker sync] |
 | Escrituras pendientes | [N] |
+| Tareas terminadas por reintentar | [N finished tasks of this tracker with something to retry (`tracker-sync` → Retry) · /agent-os:tracker sync · omit when 0] |
+| Encargado | [display_name of ~/.agent-os/profile.json · or "cuenta del tracker, o se pregunta al comentar"] |
 
 ### Ruta de acción
 | Evento | Cuándo | Columna |
@@ -36,13 +39,15 @@ Write everything in `preferences.output_language`. Follow the `tracker-sync` ski
 | blocked | etapa bloqueada | ... |
 ```
 
+With `access: "read"`, omit the "Ruta de acción" section and every row about writes (errors, pending writes, finished tasks to retry, owner).
+
 ## setup
 
-Run **Step 2.2: Tracker** of `/agent-os:setup` (same questions and checks), then write only the `tracker` key of `config.json` (read it first; keep every other key) and set `updated_at`.
+Run **Step 2.2: Tracker** of `/agent-os:setup` (same questions and checks), then write only the `tracker` key of `config.json` (read it first; keep every other key) and set `updated_at`. The name from that step's owner question goes to `~/.agent-os/profile.json`, never to `config.json`.
 
 ## map
 
-Run **Board Analysis** of the `tracker-sync` skill and write the new `tracker.status_route`. Nothing else changes.
+Run **Board Analysis** of the `tracker-sync` skill and write the new `tracker.status_route`. Nothing else changes. With `access: "read"`, follow **Read-Only Access** in the skill instead.
 
 ## pick
 
@@ -50,7 +55,11 @@ Only when `tracker.mode` is `pull` or `both` (otherwise say so and stop). If a t
 
 ## sync
 
-Requires an active task with `task.external` or `pending_writes`. Run **Retry** of the `tracker-sync` skill and show the result.
+Works with or without an active task. Read the task files in `.agent-os/tasks/` and run **Retry** of the `tracker-sync` skill for the tasks it covers (`sync TASK-NNN`: only that task). Show the result, or say in one line that nothing is pending. With `access: "read"`, **Read-Only Access** in the skill limits what runs.
+
+## owner
+
+With a name as argument: save it (**Owner Name → Configuring it** in the `tracker-sync` skill, without asking). Without one: ask that section's question and save the answer. Nothing is written to the tracker or to `config.json`.
 
 ## off
 
@@ -58,5 +67,5 @@ Ask for confirmation with AskUserQuestion ("Sí, desconectar" / "No"). On yes: r
 
 ## Rules
 
-- This command changes `config.tracker` only in `setup`, `map` and `off`, after the user's answers.
+- This command changes `config.tracker` only in `setup`, `map` and `off`, after the user's answers, and `~/.agent-os/profile.json` only in `setup` and `owner`.
 - It never writes to the tracker except through the `tracker-sync` skill (transitions of the route, and gated creates and comments).

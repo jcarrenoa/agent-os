@@ -26,7 +26,7 @@ If creating a new task: create `TASK-NNN.json`, record its git baseline (Recordi
 Read `${CLAUDE_PLUGIN_ROOT}/workflows/01-discovery.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
 Set `stages.discovery.status = "in_progress"` in the task file before spawning the agent.
-Tracker (only with `config.tracker`): fire the `start` route event (`tracker-sync` skill).
+Tracker (only with `config.tracker` and `access` not `read`): fire the `start` route event (`tracker-sync` skill).
 Set `state.json.stage_status = "in_progress"`.
 
 ### Resolve Extensions

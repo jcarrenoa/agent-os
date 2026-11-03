@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent OS User Profile",
+  "description": "Personal data kept at ~/.agent-os/profile.json, for one person across all their projects. Kept apart from ~/.agent-os/defaults.json because that schema also describes the shared `extensions` field of .agent-os/config.json. Never contains credentials.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "display_name": {
+      "type": "string",
+      "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$",
+      "description": "Name shown in the owner line of the tracker's commits comments (tracker-sync skill, Owner Name): one line, not blank. Takes priority over the tracker account's name. Set with /agent-os:setup or /agent-os:tracker owner."
+    }
+  }
+}

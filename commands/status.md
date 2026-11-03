@@ -37,7 +37,7 @@ Project:  [project_name]
 Stack:    [frontend] + [backend]
 Approver: [off | advisory | autonomous (max_revisions N) | unattended (max_revisions N)] — gates: [requirements, planning, design | —]
 Requirements format: [REQ | user stories]
-Tracker:  [none | Jira VR (MCP, mode both) | Plane REACH (MCP, mode pull)]
+Tracker:  [none | Jira VR (MCP, mode both, access write) | Plane REACH (MCP, mode pull, access read)]; a missing access is write
 Git:      [defaults | branch_pattern from base_branch · commit_pattern; "per repo" when config.git.repos is set] · commit after QA: [gate | auto | off]
 
 Pipeline State
@@ -57,7 +57,7 @@ Pipeline State
 [If active task exists]
 ─────────────────────────────────────────
 Active Task: [TASK-NNN] — [title]
-  Issue: [KEY (url) — status, N sub-tasks · N sync errors (/agent-os:tracker sync) · omit without task.external]
+  Issue: [KEY (url) — status, N sub-tasks · N sync errors (/agent-os:tracker sync) · without task.external.key: "sin issue · N sync errors" if there are any, otherwise omit]
 
   Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started | ✗ blocked] [approved by: human | approver] [approver: APPROVE | REQUEST_CHANGES, round N, N auto revisions, N change requests] [unresolved: IDs]
   Planning:    [✓ | ⏳ | ⟳ | ○ | ✗] [approved by ...] [approver: ...] [unresolved: ...]

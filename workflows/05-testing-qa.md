@@ -63,6 +63,16 @@ QA Recommendation?
         └── "New task for fixes" → close current task, advise user to create follow-up
 ```
 
+## Post-QA Command Failures
+
+This applies to a post-QA command tagged `[auto]`, or tagged `[gate]` and approved. It failed when it could not start (not found, permission denied), ended with an error, or reports that it could not do its work (for `agent-os:commit`: a repo whose commit was rejected, or commits it could not record). Having nothing to do, such as "sin cambios", is not a failure, and neither is a `[gate]` command the user declined.
+
+Then the calling command:
+1. Appends `{ at, command, reason }` to `task.post_qa_failures` and continues with the next command.
+2. Closes the task as usual: it can still be `done`.
+3. With `config.tracker`, does not apply `done_pipeline` (Held `done_pipeline` in the `tracker-sync` skill, which also says how to recover).
+4. Shows each failure in the completion summary, not only in the command's own output.
+
 ## State Updates
 
 1. When starting: `task.stages.qa.status = "in_progress"`, `started_at = now`.
@@ -76,6 +86,7 @@ QA Recommendation?
    - Add `"qa"` to `stages_completed`.
    - `task.status = "done"`, `task.completed_at = now`.
    - `state.json.current_stage = "idle"`, `stage_status = "done"`, `active_task_id = null`.
+   - If a post-QA command failed: `task.post_qa_failures` as in Post-QA Command Failures, and, with a tracker, `task.external.held_done_pipeline = true` under the conditions of Held `done_pipeline` in the `tracker-sync` skill.
 
 4. On REQUEST_CHANGES + user chooses "Fix now":
    - Keep `task.stages.qa.status = "awaiting_approval"` (for reference).

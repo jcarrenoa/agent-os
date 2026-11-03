@@ -58,7 +58,7 @@ Without approver review, or once the plan is approved:
 1. Set `stages.planning.status = "done"`.
 2. Add `"planning"` to `stages_completed` in state.json.
 3. Update `state.json.current_stage = "design"`, `stage_status = "not_started"`.
-4. Tracker (only with `config.tracker`): run `create_subtasks` (`tracker-sync` skill → Create) when the task has an issue created by agent-os. Gated, never blocking.
+4. Tracker (only with `config.tracker`): run `create_subtasks` (`tracker-sync` skill → Create) when the task has an issue created by agent-os, or its `create_parent` is queued. Gated, never blocking.
 
 ## Report
 
