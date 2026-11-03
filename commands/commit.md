@@ -36,6 +36,21 @@ Never use `--no-verify`, `--amend`, `--no-gpg-sign`, `git stash`, `git reset --h
    - `{summary}`: the task title as a short imperative sentence in `commit_language` (`Expand contact and group APIs`), with no final period. Shorten it so the whole subject line is at most 72 characters.
    - `{scope}`: the repo role (`backend`, `frontend`), or the module most of the changes are in for a single repo.
    - `{slug}`: the task title in kebab-case, ASCII only, at most 5 words (`expand-contact-group-apis`).
+6. `<base>` of each repo: with `epic_branches: true` and `task.external.epic`, the epic branch (**Epic Branch** below; here only steps 1 and 2, nothing is switched or updated); otherwise `base_branch`.
+
+## Epic Branch
+
+Used here and by `/agent-os:start` when a task is created. Only with `config.git.epic_branches: true` (or the repo's override) and `task.external.epic`. It decides the branch the task's branch is born from: the rule is to use it when it is clear and to ask when it is not, never to guess.
+
+1. **Known**: `config.git.epic_branch_map[<epic key>]`, when it exists as a local or remote branch in the repos → that branch.
+2. **Found**: list the branches of each repo (`branch -a --format=%(refname:short)`, without `origin/`, deduplicated). A branch is a match when its name, without a leading `feature/`, equals the epic key or the epic summary in kebab-case ASCII (`Contactos` → `contactos`). Exactly one match, the same in every repo that has one → that branch, said in one line: "Rama de la épica <summary> (<key>): `<branch>`".
+3. **Ask** in any other case: no match, several, or different ones per repo. AskUserQuestion, header "Épica", in `output_language`: "¿Desde qué rama sale <task key>? Es de la épica <summary> (<epic key>).". Options: up to 3 candidates, ordered by how close their name is to the summary or the key and then by most recent commit, among the branches that are not protected, are not `base_branch` and do not match `branch_pattern` with any key, each with its last commit date; and "`<base_branch>` (sin rama de épica)". The user can type another name. Save the answer in `config.git.epic_branch_map[<epic key>]` (read the file first, change only that key), unless it is `base_branch`, so it is not asked again for the next story of the epic.
+4. **Update and check out** (only from `/agent-os:start`, before the git baseline is recorded). For each repo, read-only first: `fetch` the remote, then compare the epic branch with `origin/<base_branch>`. Show one table (`Repo | Rama actual | Rama de la épica | Le faltan de <base_branch> | Cambios sin commitear`) and ask once, header "Ramas": "¿Preparo los repos en `<epic branch>` actualizada con `<base_branch>`? Solo en local, nunca hace push.": "Sí, preparar (Recomendado)" / "No, seguir como están".
+   - Yes, per repo: if the epic branch only exists remotely, create it tracking `origin/<branch>`. `switch` to it; if git refuses because of uncommitted changes, stop for this repo and report it, never forcing. Then update it from `origin/<base_branch>`: `merge --ff-only` when possible; otherwise `merge --no-edit origin/<base_branch>`, and if it conflicts, `merge --abort` and report that the merge must be done by hand. Never `reset`, `rebase` or `push`.
+   - Report per repo what was done, and that the epic branch was updated only locally: to share the update, `git -C <repo> push`.
+   - No: continue on the current branches. `/agent-os:commit` warns later if the task's branch is not born from the epic branch.
+
+Without an epic, or with `epic_branches` off, `<base>` is `base_branch` and nothing here applies.
 
 ## Step 2: Commit Each Repo
 
@@ -45,9 +60,9 @@ For each repo, run every git command as `git -C <repo> ...`:
 2. `status --porcelain=v1 --untracked-files=all` is empty → skip the repo, note "sin cambios".
 3. **Branch.** Read `branch --show-current`. `<target>` = `branch_pattern` with the placeholders filled. "This task's branch" is a branch that matches `branch_pattern` with this `{key}` (any `{slug}`), or contains the key as a whole word after a `/` (`temp/VR-91-dev`). A protected branch matches an entry of `protected_branches` exactly or by its `*` glob (`release/*`).
    - This task's branch → commit there.
+   - `<base>` (Step 1.6: the epic branch, or `base_branch`) → `switch -c <target>`. The uncommitted changes move with it, and the branch is born from `<base>`. Checked before the next rule, because an epic branch can be named like a key (`VR-12`).
    - A branch that matches `branch_pattern` with another key (another task) → `switch -c <target>` from the current HEAD, and warn that it is stacked on that branch: its PR will carry that task's commits unless that branch is merged first.
-   - `base_branch` → `switch -c <target>`. The uncommitted changes move with it, and the branch is born from `base_branch`.
-   - Any other branch, protected or not → `switch -c <target>` from the current HEAD, and warn that the branch was not born from `base_branch` (when one is configured).
+   - Any other branch, protected or not → `switch -c <target>` from the current HEAD, and warn that the branch was not born from `<base>` (when one is configured).
    - If `<target>` already exists: `switch <target>` instead of creating it. If git refuses because it would overwrite local changes, stop for this repo and report it. Never force the switch.
    - Detached HEAD → create `<target>` from it and warn.
 4. **Stage.** With `task.git_baseline.<repo>`, stage only what the task changed. For each path in the status output:
