@@ -111,7 +111,7 @@ Only when `tracker.mode` is `pull` or `both`.
 
 Only when `tracker.mode` is `create` or `both`. A pulled task never creates anything. Log both writes in `task.external.sync_log` with `event` = the write, `operation: "create"`, and `target`: the new key, or `parent` / the `SUB-NN` when nothing was created.
 
-Each create runs once, however many callers fire it. Skip `create_parent` when the task has a linked issue, when it is already in `pending_writes`, or when `sync_log` or `sync_errors` has an entry with `event: "create_parent"`. Skip `create_subtasks` when it is already in `pending_writes`, or when `sync_log` has an entry with `event: "create_subtasks"` and `result: "declined by user"`; otherwise draft only the subtasks not yet in `task.external.subtasks`, and stop if none is left.
+Each create runs once, however many callers fire it. This applies to the callers that fire a create; the Pending Writes gate runs what is queued. Skip `create_parent` when the task has a linked issue, when it is already in `pending_writes`, or when `sync_log` or `sync_errors` has an entry with `event: "create_parent"`. Skip `create_subtasks` when it is already in `pending_writes`, or when `sync_log` has an entry with `event: "create_subtasks"` and `result: "declined by user"`; otherwise draft only the subtasks not yet in `task.external.subtasks`, and stop if none is left.
 
 **`create_parent`**, after the requirements are approved (by the human or the approver), only if the task has no linked issue:
 1. Draft: type `jira.parent_type` (Plane: a work item), summary = task title, description = the user stories with their acceptance criteria (or the functional REQs), then non-functional requirements and out of scope, in `output_language`.
