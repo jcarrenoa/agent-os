@@ -1,5 +1,5 @@
 ---
-description: Manage skill, doc, agent, and command extensions for the agent-os pipeline. With no arguments opens an interactive menu. With arguments: list, add, remove, mode — for both stage/role and per-agent targets. Use --global to write to ~/.agent-os/defaults.json instead of the project config.
+description: "Manage skill, doc, agent, and command extensions for the agent-os pipeline. With no arguments opens an interactive menu. With arguments: list, add, remove, mode — for both stage/role and per-agent targets. Use --global to write to ~/.agent-os/defaults.json instead of the project config."
 argument-hint: "[list [--agent <agent> | <stage>[.<role>]]] [add|remove [--agent <agent>] <name|path>] [mode [--agent <agent>] <stage>.<role> extend|replace] [--global] [--auto]"
 allowed-tools: [Read, Write, Glob, AskUserQuestion]
 ---
