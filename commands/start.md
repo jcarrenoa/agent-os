@@ -27,7 +27,7 @@ After confirming `.agent-os/config.json` exists, read `preferences.output_langua
 Only when `config.tracker` exists. Before any tracker operation, read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md` and follow it. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first. Every tracker operation runs here in the main session (never in a subagent), and never blocks the pipeline: a failure is recorded in `task.external.sync_errors` and the stage continues.
 
 - **Issue as input**: if the argument is an issue key or URL (`tracker-sync` → Pull) and the mode allows pull, read the issue in Step 1: the task's `title` and `description` (verbatim) come from it and `task.external` links it. In `create` mode, tell the user that pull is not enabled and treat the argument as a description.
-- **Route events** (fire them at these points): `start` when Stage 1 starts, `development` when Stage 4 starts (and per created sub-task when its developer run starts), `qa` when Stage 5 starts, `done_pipeline` last of all after an approved QA (Stage 5), `blocked` whenever a stage becomes `blocked`.
+- **Route events** (none with `access: read`; otherwise fire them at these points): `start` when Stage 1 starts, `development` when Stage 4 starts (and per created sub-task when its developer run starts), `qa` when Stage 5 starts, `done_pipeline` last of all after an approved QA (Stage 5), `blocked` whenever a stage becomes `blocked`.
 - **Create** (`create` or `both`, task not pulled): `create_parent` after the requirements are approved, `create_subtasks` after the plan is approved. Both are gated (in unattended mode, queued for the end).
 - **Comments**: Comment Commits after the post-QA commands (in unattended mode, queued for the same end-of-run gate).
 - Each stage summary lists that stage's tracker writes in one line; the completion report has the Tracker table.
@@ -260,7 +260,7 @@ Files modified: [N files]
 Tests: [N passed]
 Decisions recorded: [DEC-NNN, ...]
 Tracker: [KEY → status · N errores (/agent-os:tracker sync) · omit without tracker]
-Post-QA failures: [⚠ command — reason, per entry of task.post_qa_failures · issue not moved: /agent-os:tracker sync · omit when empty]
+Post-QA failures: [⚠ command — reason, per entry of task.post_qa_failures · only when `held_done_pipeline` is set: issue not moved: /agent-os:tracker sync · omit when empty]
 
 Run `/agent-os:status` to view the project state.
 ─────────────────────────────────────────

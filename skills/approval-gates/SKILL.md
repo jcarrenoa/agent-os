@@ -1,7 +1,7 @@
 ---
 name: approval-gates
 description: This skill should be used whenever agent-os needs to determine whether a stage transition requires human approval, how to request it, how to run the optional approver review before a gate, and how to record the outcome. Use it before advancing from any stage to the next.
-version: 1.3.1
+version: 1.3.2
 ---
 
 # Approval Gates Protocol
@@ -239,5 +239,5 @@ A **block** is different from an approval gate:
 - A block means the work cannot proceed because something external is missing (e.g., missing credentials, unclear requirements that need research, external dependency not available), or, in unattended mode, a blocker is left after `max_revisions`.
 - An approval gate means work is done and the human must review before proceeding.
 
-Set `stage_status: "blocked"` and fill `state.json.blocker` when blocked. With `config.tracker`, fire the `blocked` route event (`tracker-sync` skill).
+Set `stage_status: "blocked"` and fill `state.json.blocker` when blocked. With `config.tracker` and `access` not `read`, fire the `blocked` route event (`tracker-sync` skill).
 Set `stage_status: "awaiting_approval"` and fill `pending_approval` for gates.

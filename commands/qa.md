@@ -21,7 +21,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/05-testing-qa.md` and follow it completely
 
 Set `stages.qa.status = "in_progress"` and update state.json.
 
-Tracker (only with `config.tracker`): fire the `qa` route event (`tracker-sync` skill). Never blocks the stage.
+Tracker (only with `config.tracker` and `access` not `read`): fire the `qa` route event (`tracker-sync` skill). Never blocks the stage.
 
 ### Resolve Extensions
 
@@ -98,7 +98,7 @@ Pipeline:
   ✓ QA          — [N tests passed]
 
 Decisions: [DEC-NNN, ...]
-Post-QA failures: [⚠ command — reason, per entry of task.post_qa_failures · issue not moved: /agent-os:tracker sync · omit when empty]
+Post-QA failures: [⚠ command — reason, per entry of task.post_qa_failures · only when `held_done_pipeline` is set: issue not moved: /agent-os:tracker sync · omit when empty]
 
 Run `/agent-os:status` for full history.
 ─────────────────────────────────────────
