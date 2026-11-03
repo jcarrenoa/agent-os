@@ -59,7 +59,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | Command | Description |
 |---------|-------------|
 | `/agent-os:setup` | Initialize agent-os for this project. Detects stack, offers to connect external skills. |
-| `/agent-os:start "<task>"` | Run a task through the complete 5-stage pipeline. |
+| `/agent-os:start "<task>"` | Run a task through the complete 5-stage pipeline. With a tracker in pull mode, `/agent-os:start VR-123` (or the issue URL) starts from that issue. |
 | `/agent-os:status` | Show current pipeline state, active task, and pending approvals. |
 | `/agent-os:approve` | Approve a pending gate and advance to the next stage. |
 | `/agent-os:review` | Approval console: pending gate, approver verdict, history; approve, request changes or see the details. |
@@ -74,6 +74,8 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:skills remove <stage> <name\|path>` | Remove an extension from a stage. |
 | `/agent-os:skills mode <stage>.<role> extend\|replace` | Set whether the plugin default (tech-adaptation) is added for a role. |
 | `/agent-os:extensions [status\|install\|uninstall\|update]` | Check or install the recommended extensions from the catalog, after approving the exact commands. |
+| `/agent-os:commit [KEY]` | One local commit per repo for the task, on a feature branch named by the project's git conventions. Never pushes. See [Git conventions](#git-conventions). |
+| `/agent-os:tracker [setup\|map\|pick\|sync\|owner\|off]` | Jira / Plane integration over MCP: connect it, re-map the board columns, pick an issue, retry failed syncs, set the name that closes the commits comments. See [Tracker](#tracker). |
 
 ---
 
@@ -164,6 +166,8 @@ Every post-QA command asks for approval before it runs — whatever its descript
 ```
 
 Here `review-pull-request` is gated and `update-changelog` runs automatically. From the CLI: `/agent-os:skills add qa update-changelog --auto`.
+
+Built-in commands are listed with the `agent-os:` prefix, e.g. `"agent-os:commit"` (see [Git conventions](#git-conventions)).
 
 ### How agents apply extensions
 
@@ -458,6 +462,144 @@ If you ask for changes yourself at any point, that stage's next gate goes back t
 - `"user-stories"`: functional requirements as stories, `US-001 [must]: As a <role>, I want <capability>, so that <benefit>.`, each with testable acceptance criteria (`US-001-AC1: Given ..., when ..., then ...`). Non-functional requirements and constraints stay as `REQ-NNN` sections.
 
 The planner traces each subtask to `REQ-NNN`, `US-NNN` or `US-NNN-ACn`, and QA reports coverage per story and per acceptance criterion. Without the key, everything works as with `"req"`.
+
+---
+
+## Git conventions
+
+agent-os does not hard-code a branching model or a commit format. Each project declares its own in `config.git`, and `/agent-os:setup` proposes it from the last 30 commit subjects and the branches of each repo; you confirm it, edit it, or skip it.
+
+```json
+"git": {
+  "base_branch": "qa",
+  "branch_pattern": "feature/{key}-{slug}",
+  "commit_pattern": "{key} | {type}: {summary}",
+  "commit_pattern_no_key": "{type}: {summary}",
+  "commit_types": ["feat", "fix", "chore"],
+  "commit_language": "en",
+  "protected_branches": ["master", "qa", "dev", "release/*"],
+  "repos": { "frontend-repo": { "commit_types": ["feat", "fix", "chore", "style"] } }
+}
+```
+
+| Placeholder | Value |
+|---|---|
+| `{key}` | The tracker issue key (`task.external.key`), or the task ID when there is none. Without an issue key, commits use `commit_pattern_no_key` |
+| `{task}` | The task ID (`TASK-007`) |
+| `{type}` | `task.change_type`, classified by the requirements analyst and checked by the approver |
+| `{summary}` | The task title as an imperative sentence in `commit_language`; the whole subject is at most 72 characters |
+| `{scope}` | The repo role, or the main module for a single repo |
+| `{slug}` | The title in kebab-case ASCII, at most 5 words |
+
+`repos` overrides fields for one repo when the repos follow different conventions. Without a `git` key, branches are `feature/{key}-{slug}` from the current branch, commits are `{type}: {summary}`, and `main`/`master` are protected.
+
+### /agent-os:commit
+
+Creates one local commit per repo with the task's changes:
+- **Only the task's changes**: when a task is created, agent-os records `task.git_baseline` (HEAD and the hash of every uncommitted file). Files that were already dirty and did not change stay out; files that were dirty and changed go in with a warning.
+- **Never commits secrets or tooling**: `.env*`, `*.pem`, `*.key`, `*.pfx`, `secrets*`, `credentials*`, local `appsettings.*.json`, `.agent-os/`, `.codegraph/`, `node_modules/`, `bin/`, `obj/` are unstaged and listed.
+- **Branch**: commits on the task's branch; from `base_branch` it creates the feature branch; from another task's branch or another protected branch it creates it from HEAD and warns. It never commits on a protected branch.
+- **Message**: the subject from the pattern, and one body line per subtask of the repo's role.
+- **Safe by design**: no `--no-verify`, `--amend` or `--no-gpg-sign`; a failing hook leaves the changes staged and is reported. **It never pushes.**
+- Records `task.commits`, which the tracker posts as a comment (always with your approval). Run directly, it offers the comment right after the commits; as a post-QA command, the comment comes after the post-QA commands.
+
+Run it yourself, or let setup add it as a post-QA command (`"agent-os:commit"` in `extensions.stages.qa.commands`), gated by default.
+
+## Tracker
+
+Optional integration with **Jira Cloud** or **Plane**, configured in `/agent-os:setup` (Step 2.2) or later with `/agent-os:tracker setup`. Without the `tracker` key in `config.json`, nothing changes.
+
+Only the orchestrating command talks to the tracker (the `tracker-sync` skill), never a subagent. The connection is the MCP server you register in Claude Code: agent-os never stores or sees a token. A direct REST connection is not available in this version.
+
+### Connecting the MCP server
+
+| Provider | Server | Add it |
+|---|---|---|
+| Jira | Atlassian Rovo MCP server (remote, OAuth) | `claude mcp add --transport http atlassian <URL from Atlassian's Rovo MCP Server docs>`, then `/mcp` to sign in |
+| Plane | `makeplane/plane-mcp-server` (hosted or local) | Hosted: `claude mcp add --transport http plane https://mcp.plane.so/http/mcp`, then `/mcp` to sign in. Local / self-hosted: run it with `uvx` as its README describes, with your API key in its environment (never in `.agent-os/`) |
+
+The server name you choose is stored in `tracker.mcp.server`; agent-os finds the tools by that prefix and tells you if one it needs is missing. Approve the MCP tools in Claude Code's permission prompts, or allow them in your settings.
+
+### Access
+
+Setup asks what agent-os may do in the tracker, and stores it in `tracker.access`:
+
+- `read` (recommended): it reads issues and statuses, and creates, comments and moves nothing. Only `pull` mode is available, and setup skips the route, the types to create and the owner name. The pipeline runs as usual: where a write would go, it says once per run that the tracker is read-only. `/agent-os:commit`, `/agent-os:tracker sync` and `map` respect it too.
+- `write`: everything described below. A config without `access` behaves as `write`.
+
+To change it: `/agent-os:tracker setup`.
+
+### Modes
+
+- `pull`: start from an existing issue. `/agent-os:start VR-123` (or its URL) reads the summary, description and acceptance criteria verbatim as the task description, and keeps the issue's existing sub-tasks as reference for the planner. `/agent-os:tracker pick` (or `/agent-os:start` without arguments) lists the issues in your intake column and lets you choose.
+- `create`: agent-os creates the parent issue (of the type you confirm in setup) with the approved stories or requirements, and one sub-task per planned subtask (`SUB-NN: title`, role as a label or component).
+- `both`: either, per task.
+
+### Route of action
+
+In setup (and with `/agent-os:tracker map`) agent-os reads the project's real statuses and proposes which one each pipeline event moves the issue to. You confirm or change every row:
+
+| Event | When | Typical column |
+|---|---|---|
+| `intake` | Where `pick` looks (no move) | To Do |
+| `start` | Discovery starts | In Progress |
+| `development` | Development starts (created sub-tasks: when their developer run starts) | In Progress / In Development |
+| `qa` | QA starts | QA / Testing |
+| `done_pipeline` | QA approves, after the post-QA commands and the commits comment | Code Review (the column **before** Done: the PR is still missing) |
+| `blocked` | A stage is blocked | Blocked, or none |
+
+An event without a column moves nothing. In Jira the move uses the issue's available transitions; if the target status is not reachable from the current one, agent-os skips it and records the error. Done is set only if you map `done_pipeline` to it. The Atlassian MCP tools do not expose a board's column layout, and team-managed projects do not share one, so the analysis uses the project's statuses and the transitions of its issues; you can type a status that was not found. Statuses and issue types can be localized (`En curso`, `Historia`): agent-os uses the names as your project shows them, so the columns in the table above are only typical examples.
+
+### What is written, and when you are asked
+
+| Write | Approval |
+|---|---|
+| Moving the issue (and created sub-tasks) along the route | None: the route you confirmed is the consent. Every move is logged and shown in the stage summary |
+| Creating the parent issue, creating the sub-tasks | Always asked, in every mode |
+| The commits comment | Always asked, in every mode |
+
+In unattended approver mode, creates and comments are queued and asked together at the end of the run, in one gate: the parent, then its sub-tasks, then the comments. If the parent is not created, neither are the sub-tasks. Nothing else is ever written: no field edits, assignees, deletions or links.
+
+**Commits comment**: after the post-QA commands, or when you run `/agent-os:commit` yourself, agent-os drafts one comment on the issue (and, in create mode, one per sub-task with its own commits) with the entries of `task.commits` not commented yet: per repository, the branch, and per commit the short hash, the subject and 1–3 lines of what it does. The last line names the owner (`Encargado: <name>` / `Owner: <name>`). Nothing else is commented. `task.external.sync_log` records the hashes of each comment, so a commit is never commented twice on the same issue, and one you declined is not offered again unless you run `/agent-os:tracker sync TASK-NNN`.
+
+**Owner name**: the person using agent-os, not the issue's assignee. It comes from `display_name` in `~/.agent-os/profile.json` (set in setup or with `/agent-os:tracker owner`); otherwise from your tracker account's display name, read through MCP and not stored; otherwise you are asked at the gate, where you can type it or leave the line out. It is personal, so it is never stored in `.agent-os/config.json`, which may be shared through git, and agent-os never makes one up.
+
+### Errors never block
+
+A tracker failure (server not connected, transition not reachable, network error) is recorded in `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries them (moving to the status of the task's current event) and asks for any pending writes. It also works after a task has finished: failed comments and pending writes can still be retried then, while failed moves of finished tasks are not retried, because the issue may have moved on, and tasks linked to a different tracker than the current one are skipped. A comment is recorded in the task before it is posted: if that record cannot be written, nothing is posted. Before posting again after a failed or unfinished attempt, agent-os checks the issue's comments for the commit hashes; if it cannot read them, it asks you instead of posting blindly.
+
+The `done_pipeline` move runs last. A declined or failed commits comment does not stop it, so the issue still advances. Only a failed post-QA command does: if a command configured with `auto: true`, or one you approved at its gate, fails, the task still closes, the failure is recorded in `task.post_qa_failures` and shown in the final summary, and the `done_pipeline` move is held. After fixing the cause (for a commit, `/agent-os:commit`), `/agent-os:tracker sync` shows the issue's current status and asks whether to move it. Every write is in `task.external.sync_log` and in the completion report.
+
+### Configuration example
+
+```json
+"tracker": {
+  "provider": "jira",
+  "access": "write",
+  "connection": "mcp",
+  "mcp": { "server": "atlassian" },
+  "mode": "both",
+  "jira": {
+    "site_url": "https://acme.atlassian.net",
+    "cloud_id": "…",
+    "project_key": "VR",
+    "parent_type": "Story",
+    "subtask_type": "Sub-task",
+    "role_field": "label"
+  },
+  "pick_assigned_to_me": true,
+  "status_route": {
+    "intake": { "status": "To Do" },
+    "start": { "status": "In Progress" },
+    "development": { "status": "In Progress" },
+    "qa": { "status": "QA" },
+    "done_pipeline": { "status": "Code Review" },
+    "blocked": null
+  }
+}
+```
+
+For Plane, replace `jira` with `"plane": { "workspace_slug", "project_id", "project_identifier", "base_url" }` and give each route entry its state `id`.
 
 ---
 
