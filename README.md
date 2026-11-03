@@ -523,7 +523,7 @@ The server name you choose is stored in `tracker.mcp.server`; agent-os finds the
 ### Modes
 
 - `pull`: start from an existing issue. `/agent-os:start VR-123` (or its URL) reads the summary, description and acceptance criteria verbatim as the task description, and keeps the issue's existing sub-tasks as reference for the planner. `/agent-os:tracker pick` (or `/agent-os:start` without arguments) lists the issues in your intake column and lets you choose.
-- `create`: agent-os creates the parent issue (`Story` by default) with the approved stories or requirements, and one sub-task per planned subtask (`SUB-NN: title`, role as a label or component).
+- `create`: agent-os creates the parent issue (of the type you confirm in setup) with the approved stories or requirements, and one sub-task per planned subtask (`SUB-NN: title`, role as a label or component).
 - `both`: either, per task.
 
 ### Route of action
@@ -539,7 +539,7 @@ In setup (and with `/agent-os:tracker map`) agent-os reads the project's real st
 | `done_pipeline` | QA approves, after the post-QA commands and the commits comment | Code Review (the column **before** Done: the PR is still missing) |
 | `blocked` | A stage is blocked | Blocked, or none |
 
-An event without a column moves nothing. In Jira the move uses the issue's available transitions; if the target status is not reachable from the current one, agent-os skips it and records the error. Done is set only if you map `done_pipeline` to it. The Atlassian MCP tools do not expose the board's column layout, so the analysis uses the statuses found in the project's issues and their transitions; you can type a status that was not found.
+An event without a column moves nothing. In Jira the move uses the issue's available transitions; if the target status is not reachable from the current one, agent-os skips it and records the error. Done is set only if you map `done_pipeline` to it. The Atlassian MCP tools do not expose a board's column layout, and team-managed projects do not share one, so the analysis uses the project's statuses and the transitions of its issues; you can type a status that was not found. Statuses and issue types can be localized (`En curso`, `Historia`): agent-os uses the names as your project shows them, so the columns in the table above are only typical examples.
 
 ### What is written, and when you are asked
 

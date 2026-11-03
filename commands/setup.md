@@ -238,10 +238,10 @@ Connects Jira or Plane through an MCP server. Writes to the tracker follow the `
    "No" → no `tracker` key (with `--reconfigure`, remove it if it existed, after confirming). Continue to Step 2.5.
 2. **MCP server.** List the MCP tools available in this session and find the servers whose tools match the provider (`tracker-sync` → Tool Discovery). One match: use it. Several: ask which one. None: show the `claude mcp add` command for the provider from the README (Tracker section), tell the user to add it, authenticate with `/mcp`, and run `/agent-os:tracker setup` later. Do not write a `tracker` key; continue to Step 2.5.
 3. **Project.**
-   - Jira: get the accessible sites (one → use it; several → ask), keep `site_url` and `cloud_id`; list the visible projects and ask for the project (the 4 most relevant as options; the user can type the key). Read its issue types and propose `parent_type` (Story) and `subtask_type` (Sub-task, or the project's sub-task type); confirm in the next question.
+   - Jira: get the accessible sites (one → use it; several → ask), keep `site_url` and `cloud_id`; list the visible projects and ask for the project (the 4 most relevant as options; the user can type the key). Read its issue types (`tracker-sync` → Tool Discovery) and propose `parent_type` and `subtask_type` from what was read, using the names as the project shows them, in any language; confirm in the next question. If they cannot be read, ask the user to type them there.
    - Plane: list the projects of the workspace and ask; keep `workspace_slug`, `project_id`, `project_identifier` and, for self-hosted instances, `base_url`.
 4. AskUserQuestion with:
-   - Header "Modo" — "¿Cómo se relacionan las tareas con el tablero?": "Ambos (Recomendado)" (description: "Empezar desde un issue existente o crear uno nuevo") / "Pull" (description: "Solo tomar issues que ya existen") / "Create" (description: "agent-os crea la Story y sus sub-tareas, siempre con tu aprobación").
+   - Header "Modo" — "¿Cómo se relacionan las tareas con el tablero?": "Ambos (Recomendado)" (description: "Empezar desde un issue existente o crear uno nuevo") / "Pull" (description: "Solo tomar issues que ya existen") / "Create" (description: "agent-os crea el issue padre y sus sub-tareas, siempre con tu aprobación").
    - Jira only, header "Tipos" — "Tipos para crear: [parent_type] + [subtask_type]?": "Sí (Recomendado)" / "Cambiar" (then ask the user to type them).
 5. **Route of action**: run **Board Analysis** of the `tracker-sync` skill.
 6. **Owner name** (optional): ask the question of **Owner Name → Configuring it** in the `tracker-sync` skill, and keep the answer for Step 4.
@@ -478,7 +478,7 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | Gestor | [No conectado · or Jira / Plane por MCP (`server`)] |
 | Proyecto | [project key · or workspace / identifier · or —] |
 | Modo | [pull · create · both · or —] |
-| Ruta | [start → In Progress · development → … · qa → … · done_pipeline → … · blocked → … · or —] |
+| Ruta | [start → … · development → … · qa → … · done_pipeline → … · blocked → … · or —] |
 | Escrituras | Mover por la ruta: automático · Crear y comentar: siempre con tu aprobación |
 | Encargado | [display_name · or "cuenta del tracker, o se pregunta al comentar"] |
 

@@ -268,8 +268,8 @@
             "site_url": { "type": "string", "description": "Site URL, e.g. https://acme.atlassian.net." },
             "cloud_id": { "type": "string", "description": "Atlassian cloud ID of the site, discovered in setup (some MCP tools need it). Not a secret." },
             "project_key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$", "description": "Project key, e.g. VR." },
-            "parent_type": { "type": "string", "default": "Story", "description": "Issue type of the parent issue created in create mode." },
-            "subtask_type": { "type": "string", "default": "Sub-task", "description": "Issue type of the sub-tasks created in create mode." },
+            "parent_type": { "type": "string", "description": "Issue type of the parent issue created in create mode, as the project names it (it can be localized). No default: read from the project in setup, and asked for before creating when missing." },
+            "subtask_type": { "type": "string", "description": "Issue type of the sub-tasks created in create mode, as the project names it (it can be localized). No default: read from the project in setup, and asked for before creating when missing." },
             "role_field": { "type": "string", "enum": ["label", "component"], "default": "label", "description": "How the developer role (backend / frontend) is written on created sub-tasks." }
           }
         },

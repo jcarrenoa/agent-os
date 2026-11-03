@@ -1,7 +1,7 @@
 ---
 name: tracker-sync
 description: This skill should be used whenever agent-os needs to read from or write to the project's issue tracker (Jira or Plane) configured in config.tracker — starting a task from an issue key or URL ("/agent-os:start VR-123"), picking an issue from the board, analysing the board's columns to build the route of action, moving the issue through the route as the pipeline advances, creating the parent issue and sub-tasks, or posting the commits comment. Only the orchestrating command uses it, never a subagent.
-version: 1.4.0
+version: 1.5.0
 ---
 
 # Tracker Sync Protocol
@@ -23,31 +23,35 @@ Applies only when `.agent-os/config.json` has a `tracker` key. Without it, skip 
   | Comment the commits | `comment_commits` | Gate, every time, in every mode |
 
   Never edit fields, assignees, descriptions or sprints, never delete, never link, never transition to a status that is not in `status_route`. Never move to Done unless the user mapped `done_pipeline` to Done.
+
+  On the Atlassian server: never use `executeWrite` or `executeDestructive`. Never pass `commentId` to `addOrEditJiraIssueComment`: it edits an existing comment and replaces its whole body. Never comment through the `update` of `transitionJiraIssue`.
 - **Unattended approver mode** does not skip these gates: create and comment writes are queued in `task.external.pending_writes` and asked together at the end of the run (Pending Writes). Transitions still run.
 - **Never block the pipeline.** A failed or impossible tracker operation is appended to `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries.
-- **Log every write** in `task.external.sync_log` (`at`, `event`, `operation`, `target`, `result`; a comment is recorded before it is posted, Comment Commits Step 9), and show the writes of a stage in that stage's summary (`Tracker: VR-123 → In Progress`). The final report has a Tracker section. `event` is the route event, the write (`create_parent`, `create_subtasks`, `comment_commits`), `pull` or `retry`, never a gate name such as `requirements-approved`.
+- **Log every write** in `task.external.sync_log` (`at`, `event`, `operation`, `target`, `result`; a comment is recorded before it is posted, Comment Commits Step 9), and show the writes of a stage in that stage's summary (`Tracker: VR-123 → [status]`). The final report has a Tracker section. `event` is the route event, the write (`create_parent`, `create_subtasks`, `comment_commits`), `pull` or `retry`, never a gate name such as `requirements-approved`.
 - **A linked issue means `task.external.key`.** `task.external` can exist without a key, to hold the log, the errors and the queue of a task whose issue is not created. It then has only `provider` (`config.tracker.provider`) and those fields, and it does not count as a linked issue. If one of those has to be written and `task.external` is missing, create it that way first.
 
 ## Tool Discovery
 
-At the first tracker operation of a command, list the available tools whose names start with `mcp__<tracker.mcp.server>__` and map each function below to one of them by name. If a function needed by the current operation has no tool: tell the user once ("El servidor MCP `<server>` no expone <función>"), record a sync error, and continue. If no tool has that prefix at all: the server is not connected in this session; suggest `claude mcp add` (README → Tracker) or `/mcp` to authenticate, record a sync error, and continue.
+At the first tracker operation of a command, list the available tools whose names start with `mcp__<tracker.mcp.server>__` and map each function below to one of them by name. If a function needed by the current operation has no tool, or its tool returns no data: tell the user once ("El servidor MCP `<server>` no expone <función>"), record a sync error, and continue. If no tool has that prefix at all: the server is not connected in this session; suggest `claude mcp add` (README → Tracker) or `/mcp` to authenticate, record a sync error, and continue.
 
 | Function | Jira (Atlassian Rovo MCP) | Plane (plane-mcp-server) |
 |---|---|---|
 | Site / cloud ID | `getAccessibleAtlassianResources` | — |
-| Current user | `atlassianUserInfo` | the "get me / current user" tool |
-| Projects | `getVisibleJiraProjects` | the "list projects" tool |
+| Current user | Two steps: `atlassianUserInfo` gives the `accountId`, then `getPeopleInfo` (`cloudId`, `accountId`) gives the name, read by meaning | the "get me / current user" tool |
+| Projects | `executeRead` name `listJiraProjects`, inputs `{ query, action: "view", expand: "issueTypes" }` | the "list projects" tool |
 | Read issue | `getJiraIssue` | the "get work item" tool (by readable identifier when available) |
 | Search issues | `searchJiraIssuesUsingJql` | the "list work items" tool |
-| Statuses | transitions + statuses seen in a search (Board Analysis) | the "list states" tool |
-| Issue types | `getJiraProjectIssueTypesMetadata` | — |
-| Transitions | `getTransitionsForJiraIssue` | — |
-| Move | `transitionJiraIssue` | the "update work item" tool, field `state` |
-| Create | `createJiraIssue` | the "create work item" tool (`parent` for sub-tasks) |
-| Comment | `addCommentToJiraIssue` | the "create work item comment" tool |
-| Read comments | `getJiraIssue` (comment field) | the "list work item comments" tool |
+| Statuses | `executeRead` name `listJiraStatuses`, inputs `{ mode: "project", projectKey }` | the "list states" tool |
+| Issue types | In the Projects response (`expand: "issueTypes"`); as an alternative, `executeRead` name `listJiraProjectIssueTypesMetadata`, inputs `{ projectIdOrKey }` | — |
+| Transitions | `executeRead` name `listJiraIssueTransitions`, inputs `{ issueIdOrKey }`, not `getJiraIssue` | — |
+| Move | `transitionJiraIssue` (`cloudId`, `issueIdOrKey`, `transitionId`) | the "update work item" tool, field `state` |
+| Create | `createJiraIssue` (`cloudId`, `projectKey`, `summary`, `issueType`; optional `parent`, `description`, `labels`) | the "create work item" tool (`parent` for sub-tasks) |
+| Comment | `addOrEditJiraIssueComment` (`cloudId`, `issueIdOrKey`, `commentBody`) | the "create work item comment" tool |
+| Read comments | `listJiraIssueComments` (`cloudId`, `issueIdOrKey`), not `getJiraIssue`, reading every page with `startAt` until `isLast` | the "list work item comments" tool, reading every page |
 
-Tool names depend on the server version: match by meaning, and never guess parameters — read each tool's schema before calling it. Jira tools that take `cloudId` use `tracker.jira.cloud_id`.
+Tool names depend on the server version and tenants differ: match by meaning, and never guess parameters — read each tool's schema before calling it. Get `executeRead` operation names from `discover`, never by guessing: those in the table are examples that were seen, not a guarantee. Jira tools that take `cloudId` use `tracker.jira.cloud_id`.
+
+`executeRead` answers inside `{ "data": ... }`; read the result by meaning. Its `responseFields` filter, when wrongly aimed, returns `{ "data": {} }` with no error, so an empty result does not mean there is no data: ask again without the filter or with the right fields before treating it as "returns no data".
 
 Two functions are best effort and record no sync error when they have no tool or fail: Current user (Owner Name) and Read comments (Comment Commits, Step 2).
 
@@ -56,9 +60,9 @@ Two functions are best effort and record no sync error when they have no tool or
 Used by `/agent-os:setup` Step 2.2 and `/agent-os:tracker map`. Builds `tracker.status_route` with the user.
 
 1. **Read the real statuses.**
-   - Jira: search `project = <KEY> ORDER BY updated DESC` (up to 50 issues) and collect the distinct statuses with their category (To Do / In Progress / Done). Take one issue in a To Do status and one in an In Progress status and read their transitions, to learn the statuses reachable from each. The MCP tools do not expose the board's column configuration: say so, and let the user add a status that was not found by typing it.
+   - Jira: read the project's statuses (Statuses), with their category when the response gives one. If an issue exists in a to-do status and another in an in-progress one (Search issues), read their transitions, to learn the statuses reachable from each. The MCP tools do not expose a board's column configuration, and team-managed projects do not share one: say so, and let the user add a status that was not found by typing it.
    - Plane: list the project's states (name, group `backlog | unstarted | started | completed | cancelled`, ID).
-2. **Propose a route** for the events:
+2. **Propose a route** for the events. Status names can be localized (`Por hacer`, `En curso`): the proposals below describe a status's category or meaning, in any language, and always use the name as read.
 
    | Event | When | Proposal |
    |---|---|---|
@@ -87,9 +91,9 @@ The commands fire these events; each one moves the parent issue (if the task has
 **Transition protocol**:
 1. If the route entry is `null` or missing: do nothing.
 2. Read the issue's current status. If it is already the target: do nothing.
-3. Jira: get the issue's transitions and pick the one whose target status matches the route status (by ID, else by name, case-insensitive). Plane: update the work item's `state` to the route `id`.
-4. No such transition (not reachable from the current status), or an error: append a sync error (`result`: "<target> not reachable from <current>" or the error message without secrets) and continue.
-5. On success: update `task.external.status` (or the sub-task's `status`) and log it.
+3. Jira: list the issue's transitions, pick the one whose target status matches the route status (by ID, else by name, case-insensitive), and move by its `transitionId`. A transition is not its target status, even when they look alike: `transitionName` is the transition's own name, so never pick by it. Read where the target status is from the tool's schema or the response (seen as `to.name`). A transition marked as not available (seen as `isAvailable: false`) is never picked. Plane: update the work item's `state` to the route `id`.
+4. No such transition (not reachable from the current status), a target status that cannot be determined, or an error: append a sync error (`result`: "<target> not reachable from <current>", or the reason or error message without secrets) and continue, without guessing.
+5. Confirm the new status from the move's result or by reading the issue. If it is the route status: update `task.external.status` (or the sub-task's `status`) and log it. If it is not, or it cannot be determined: append a sync error.
 
 ## Pull
 
@@ -111,7 +115,9 @@ Only when `tracker.mode` is `pull` or `both`.
 
 Only when `tracker.mode` is `create` or `both`. A pulled task never creates anything. Log both writes in `task.external.sync_log` with `event` = the write, `operation: "create"`, and `target`: the new key, or `parent` / the `SUB-NN` when nothing was created.
 
-Each create runs once, however many callers fire it. This applies to the callers that fire a create; the Pending Writes gate runs what is queued. Skip `create_parent` when the task has a linked issue, when it is already in `pending_writes`, or when `sync_log` or `sync_errors` has an entry with `event: "create_parent"`. Skip `create_subtasks` when it is already in `pending_writes`, or when `sync_log` has an entry with `event: "create_subtasks"` and `result: "declined by user"`; otherwise draft only the subtasks not yet in `task.external.subtasks`, and stop if none is left.
+Each create runs once, however many callers fire it. This applies to the callers that fire a create; the Pending Writes gate runs what is queued. Skip `create_parent` when the task has a linked issue, when it is already in `pending_writes`, when `sync_log` has an entry with `event: "create_parent"`, or when `sync_errors` has one whose call was sent, because that failure is ambiguous and creating again could duplicate the issue. An error before the call is recorded with a `result` that starts with `not sent:`. It does not count, so the create is asked again the next time it is fired. Skip `create_subtasks` when it is already in `pending_writes`, or when `sync_log` has an entry with `event: "create_subtasks"` and `result: "declined by user"`; otherwise draft only the subtasks not yet in `task.external.subtasks`, and stop if none is left.
+
+Jira: `jira.parent_type` and `jira.subtask_type` are the type names as the project shows them, which can be localized, and there is no default. If the one a create needs is missing, read the project's issue types and ask for it right before the gate. If it still cannot be obtained, record a sync error with `result: "not sent: <reason>"` and do not create.
 
 **`create_parent`**, after the requirements are approved (by the human or the approver), only if the task has no linked issue:
 1. Draft: type `jira.parent_type` (Plane: a work item), summary = task title, description = the user stories with their acceptance criteria (or the functional REQs), then non-functional requirements and out of scope, in `output_language`.
@@ -182,7 +188,7 @@ Present gated writes in one block and ask with AskUserQuestion ("Sí, escribir e
 ─────────────────────────────────────────
 TRACKER: escrituras pendientes en [Jira | Plane]
 ─────────────────────────────────────────
-- Crear [Story] "[title]" en [VR]
+- Crear [parent_type] "[title]" en [VR]
 - Crear [N] sub-tareas bajo [VR-123]: SUB-01 …, SUB-02 …
 - Comentar commits en [VR-123] (+ [N] sub-tareas) · [Encargado: <name> | sin línea de encargado]
 [the full text of each item, collapsed per item, comments ending with their owner line]
