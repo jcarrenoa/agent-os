@@ -26,13 +26,23 @@ State is persisted between sessions in `.agent-os/` at the project root — full
 
 ### From the Agent OS marketplace
 
+This repository is its own marketplace (`.claude-plugin/marketplace.json`), and it installs from `main`:
+
 ```
-claude plugins install https://github.com/jcarrenoa/agent-os-marketplace agent-os
+claude plugin marketplace add jcarrenoa/agent-os
+claude plugin install agent-os@agent-os-marketplace
+```
+
+To update after changes land in `main`:
+
+```
+claude plugin marketplace update agent-os-marketplace
+claude plugin update agent-os@agent-os-marketplace
 ```
 
 ### Manual (development)
 
-Clone this repository and configure your Claude Code project settings to load it as a local plugin.
+Clone this repository and start Claude Code with `claude --plugin-dir <path-to-agent-os>`. Do not combine it with the marketplace install: the plugin would load twice.
 
 ---
 
