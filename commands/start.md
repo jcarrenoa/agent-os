@@ -40,7 +40,11 @@ When `config.approver.enabled` and `config.approver.mode = "unattended"`, tell t
 
 Read `.agent-os/tasks/` to determine the next task ID (TASK-001, TASK-002, etc.).
 
-Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill), then record its git baseline (Recording the git baseline in the same skill). If any repo has `dirty` entries, show that section's one-line warning before anything else, as its own line, in every mode (unattended included). If the input is a tracker issue, fill `title`, `description` and `external` from it (`tracker-sync` → Pull); the requirements-analyst then receives that description verbatim as the task description.
+Create `.agent-os/tasks/TASK-NNN.json` with a new task record (use the template from the state-management skill). If the input is a tracker issue, fill `title`, `description` and `external` from it (`tracker-sync` → Pull); the requirements-analyst then receives that description verbatim as the task description.
+
+**Epic branch**: with `config.git.epic_branches: true` (or a repo override) and `task.external.epic`, read `${CLAUDE_PLUGIN_ROOT}/commands/commit.md` and run its **Epic Branch** section, all four steps, before the baseline. Its questions are asked in every mode, unattended included, because they decide where the work is done. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
+
+Then record the task's git baseline (Recording the git baseline in the same skill). If any repo has `dirty` entries, show that section's one-line warning before anything else, as its own line, in every mode (unattended included).
 
 Update `.agent-os/state.json`:
 ```json

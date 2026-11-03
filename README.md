@@ -501,6 +501,20 @@ agent-os does not hard-code a branching model or a commit format. Each project d
 | `{scope}` | The repo role, or the main module for a single repo |
 | `{slug}` | The title in kebab-case ASCII, at most 5 words |
 
+### Epic branches
+
+Some teams give each epic its own branch, born from `base_branch`, and branch each story from it. With `"epic_branches": true` and `"branch_pattern": "{key}"`:
+
+```
+qa ──► contacts (epic Contactos, updated with qa) ──► VR-96 (story)
+```
+
+- **Pull** reads the issue's epic (its parent in Jira) into `task.external.epic`. This is a read, so it also works with read-only access.
+- **The epic branch is used when it is clear, and asked about when it is not.** It is used when `epic_branch_map` knows it, or when exactly one branch is named like the epic's key or summary (`feature/contactos`). Otherwise you are asked which branch it is, and the answer is saved in `epic_branch_map`, so the next story of that epic is not asked again.
+- **`/agent-os:start`** offers to check out the epic branch in each repo and update it from `base_branch` before the work starts. This is local only: `--ff-only` when possible, otherwise a merge that is aborted and reported if it conflicts.
+- **`/agent-os:commit`** creates the story branch from the epic branch. Merging the story into the epic, and the PRs to `dev` and `qa`, are yours.
+- **A task without an epic** uses `base_branch` as before.
+
 `repos` overrides fields for one repo when the repos follow different conventions. Without a `git` key, branches are `feature/{key}-{slug}` from the current branch, commits are `{type}: {summary}`, and `main`/`master` are protected.
 
 ### /agent-os:commit
