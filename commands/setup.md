@@ -244,7 +244,8 @@ Connects Jira or Plane through an MCP server. Writes to the tracker follow the `
    - Header "Modo" — "¿Cómo se relacionan las tareas con el tablero?": "Ambos (Recomendado)" (description: "Empezar desde un issue existente o crear uno nuevo") / "Pull" (description: "Solo tomar issues que ya existen") / "Create" (description: "agent-os crea la Story y sus sub-tareas, siempre con tu aprobación").
    - Jira only, header "Tipos" — "Tipos para crear: [parent_type] + [subtask_type]?": "Sí (Recomendado)" / "Cambiar" (then ask the user to type them).
 5. **Route of action**: run **Board Analysis** of the `tracker-sync` skill.
-6. Keep the result for Step 4: `"tracker": { provider, connection: "mcp", mcp: { server }, mode, jira | plane, pick_assigned_to_me: true, status_route }`. No credentials: the MCP server handles authentication.
+6. **Owner name** (optional): ask the question of **Owner Name → Configuring it** in the `tracker-sync` skill, and keep the answer for Step 4.
+7. Keep the result for Step 4: `"tracker": { provider, connection: "mcp", mcp: { server }, mode, jira | plane, pick_assigned_to_me: true, status_route }`. No credentials: the MCP server handles authentication.
 
 If any MCP call fails, say so, write no `tracker` key, suggest `/agent-os:tracker setup`, and continue: the tracker never blocks setup.
 
@@ -395,6 +396,10 @@ Create empty directories:
 
 Create a placeholder `.agent-os/tasks/.gitkeep` and `.agent-os/decisions/.gitkeep`.
 
+### `~/.agent-os/profile.json`
+
+Only if the owner name of Step 2.2 changed: save it as **Owner Name → Configuring it** in the `tracker-sync` skill says. It is personal, so it never goes in `config.json`.
+
 ## Step 5: Git Configuration
 
 **If `workspace_type = "multi-repo"`:**
@@ -475,6 +480,7 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | Modo | [pull · create · both · or —] |
 | Ruta | [start → In Progress · development → … · qa → … · done_pipeline → … · blocked → … · or —] |
 | Escrituras | Mover por la ruta: automático · Crear y comentar: siempre con tu aprobación |
+| Encargado | [display_name · or "cuenta del tracker, o se pregunta al comentar"] |
 
 (Omit every row but "Gestor" when no tracker is connected.)
 
@@ -498,4 +504,4 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | `/agent-os:commit` | Commit local por repo con las convenciones de git (nunca hace push) |
 ```
 
-To change these options later: `/agent-os:setup --reconfigure`, or edit `approver` and `preferences.requirements_format` in `.agent-os/config.json` (README → Approver). The tracker: `/agent-os:tracker setup | map | off`.
+To change these options later: `/agent-os:setup --reconfigure`, or edit `approver` and `preferences.requirements_format` in `.agent-os/config.json` (README → Approver). The tracker: `/agent-os:tracker setup | map | owner | off`.

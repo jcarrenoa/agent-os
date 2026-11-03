@@ -1,7 +1,7 @@
 ---
 name: tracker-sync
 description: This skill should be used whenever agent-os needs to read from or write to the project's issue tracker (Jira or Plane) configured in config.tracker — starting a task from an issue key or URL ("/agent-os:start VR-123"), picking an issue from the board, analysing the board's columns to build the route of action, moving the issue through the route as the pipeline advances, creating the parent issue and sub-tasks, or posting the commits comment. Only the orchestrating command uses it, never a subagent.
-version: 1.0.0
+version: 1.2.0
 ---
 
 # Tracker Sync Protocol
@@ -25,7 +25,7 @@ Applies only when `.agent-os/config.json` has a `tracker` key. Without it, skip 
   Never edit fields, assignees, descriptions or sprints, never delete, never link, never transition to a status that is not in `status_route`. Never move to Done unless the user mapped `done_pipeline` to Done.
 - **Unattended approver mode** does not skip these gates: create and comment writes are queued in `task.external.pending_writes` and asked together at the end of the run (Pending Writes). Transitions still run.
 - **Never block the pipeline.** A failed or impossible tracker operation is appended to `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries.
-- **Log every write** in `task.external.sync_log` (`at`, `event`, `operation`, `target`, `result`), and show the writes of a stage in that stage's summary (`Tracker: VR-123 → In Progress`). The final report has a Tracker section.
+- **Log every write** in `task.external.sync_log` (`at`, `event`, `operation`, `target`, `result`; a comment is recorded before it is posted, Comment Commits Step 9), and show the writes of a stage in that stage's summary (`Tracker: VR-123 → In Progress`). The final report has a Tracker section.
 
 ## Tool Discovery
 
@@ -44,8 +44,11 @@ At the first tracker operation of a command, list the available tools whose name
 | Move | `transitionJiraIssue` | the "update work item" tool, field `state` |
 | Create | `createJiraIssue` | the "create work item" tool (`parent` for sub-tasks) |
 | Comment | `addCommentToJiraIssue` | the "create work item comment" tool |
+| Read comments | `getJiraIssue` (comment field) | the "list work item comments" tool |
 
 Tool names depend on the server version: match by meaning, and never guess parameters — read each tool's schema before calling it. Jira tools that take `cloudId` use `tracker.jira.cloud_id`.
+
+Two functions are best effort and record no sync error when they have no tool or fail: Current user (Owner Name) and Read comments (Comment Commits, Step 2).
 
 ## Board Analysis (route of action)
 
@@ -77,7 +80,7 @@ The commands fire these events; each one moves the parent issue (if `task.extern
 | `start` | discovery start (`/agent-os:start`, `/agent-os:discover`) | — |
 | `development` | development start (`/agent-os:develop`, Stage 4 of start) | each sub-task when its developer run starts |
 | `qa` | QA start | all created sub-tasks |
-| `done_pipeline` | QA approved, after post-QA commands | all created sub-tasks |
+| `done_pipeline` | QA approved, last of all: after the post-QA commands, Comment Commits and the Pending Writes gate. Held if an `[auto]` command failed (Held `done_pipeline`) | all created sub-tasks |
 | `blocked` | any stage set to `blocked` | the sub-tasks of the blocked run, or all |
 
 **Transition protocol**:
@@ -118,11 +121,55 @@ Only when `tracker.mode` is `create` or `both` and the task has no `task.externa
 
 ## Comment Commits
 
-After the post-QA commands have run, if `task.commits` has entries not yet commented (no `comment_commits` entry in `sync_log` for them) and the task has a tracker issue:
+Runs at three points:
+- **Post-QA**: after the post-QA commands of an approved QA (`/agent-os:qa`, `/agent-os:start`).
+- **Manual**: when the user runs `/agent-os:commit` directly (that command's Step 5).
+- **Retry**: `/agent-os:tracker sync`.
 
-1. Draft, in `output_language`, one comment for the parent issue: per repository (grouped by the `repo` value of `task.commits`, the repo path), the branch, then per commit the short hash, the subject and 1–3 lines of what it does, written from the titles and criteria of the subtasks in its `subtasks`. Nothing else: no code, no file lists, no secrets.
-2. In create mode, also one comment per created sub-task with only the commits whose `subtasks` include it.
-3. One gate for all the comments (Write Gates). On approval: post them and log each one.
+**Pending commits.** For a target (the parent issue, or a created sub-task), the pending commits are the entries of `task.commits` (for a sub-task, only those whose `subtasks` include it) whose `hash` is in no `sync_log` entry with `operation = "comment"`, that `target`, and `result` equal to `attempting`, `posted` or `declined by user`. A target without pending commits gets no comment, so running this again never repeats a commit.
+
+**Comment entries**, in `task.external.sync_log`: `{ at, event, operation: "comment", target: <key>, result, commits: [<hashes in that comment>] }`, with `event` = `comment_commits` (`retry` during Retry). `result` is one of:
+
+| `result` | Meaning |
+|---|---|
+| `attempting` | Written before the call, with no outcome recorded: whether the comment reached the tracker is unknown |
+| `posted` | The comment is on the issue |
+| `failed` | The call returned an error. The call may still have reached the tracker. The error is in `sync_errors` |
+| `declined by user` | The user answered no at the gate |
+
+1. If the task has no `task.external` and no queued `create_parent`: stop, silently. If `task.external.provider` is not `config.tracker.provider` (the tracker changed since), say so in one line and stop.
+2. **Verify earlier attempts.** For each `attempting` entry, and each `failed` entry with commits still pending, read that issue's comments (Read comments) and look for the entry's hashes. A comment is posted as a whole, so one hash found means `posted`. None found means `failed`. If the comments cannot be read (no tool, or the read fails), the entry stays as it is.
+3. If no target has pending commits or `attempting` entries: stop, silently.
+4. **Post-QA in unattended approver mode**: append `{ operation: "comment_commits", target: "parent", queued_at }` to `pending_writes` (once) and stop. The comments are drafted when the Pending Writes gate is shown. Manual and Retry were asked for by the user: they always continue to the gate now.
+5. **Attempts still unknown.** Never post these commits blindly. For each `attempting` entry left, ask with AskUserQuestion, header "Comentario": "No se pudo comprobar si el comentario con [hashes] llegó a [KEY]. Revísalo en [url].", options "Ya está publicado" (→ `posted`) / "No está, ofrecerlo de nuevo" (→ `failed`) / "Dejarlo sin resolver" (stays `attempting`, those commits are not offered, and `/agent-os:tracker sync` asks again). If the gate would still include commits of a `failed` entry that could not be verified, say in the gate that a duplicate is possible.
+6. Draft, in `output_language`, one comment for the parent issue with its pending commits: per repository (grouped by the `repo` value of `task.commits`, the repo path), the branch, then per commit the short hash, the subject and 1–3 lines of what it does, written from the titles and criteria of the subtasks in its `subtasks`. In create mode, also one comment per created sub-task with its pending commits. No code, no file lists, no secrets. If nothing is left to comment, stop.
+7. Resolve the name (Owner Name). When there is one, the last line of every comment is the owner line. Nothing comes after it, and nothing else is added to the comment.
+8. One gate for all the comments (Write Gates).
+9. **Record, then post.** On approval, for each comment, in order:
+   1. Write its `attempting` entry to the task file. If that write is denied or fails: do not post this comment or the following ones, and tell the user in one line. Their commits stay pending.
+   2. Post the comment.
+   3. Update that entry's `result`: `posted`, or `failed` plus a `sync_errors` entry with the same fields and the error as `result`. After a failure, continue with the next comment. If this update cannot be written, tell the user in one line: the entry stays `attempting`, and the next run verifies it instead of posting again.
+
+   A declined gate logs one entry per target in `task.external.sync_log`, with `result: "declined by user"` and its `commits`. If it cannot be written, tell the user in one line that those commits will be offered again.
+
+## Owner Name
+
+The owner line closes every commits comment: `Encargado: <name>` when `output_language` is `es`, `Owner: <name>` when it is `en`. The owner is the person using agent-os, not the issue's assignee: never read the assignee for this, and never edit it.
+
+Resolve the name once per command run, first match wins:
+
+1. `display_name` in `~/.agent-os/profile.json` (schema: `PLUGIN_ROOT/schemas/profile.schema.json`).
+2. The display name of the tracker account, from the Current user function. Use only the name, never the email or account ID: a result without a name, or whose name has the form of an email, counts as not obtained. Do not store it.
+3. Ask, right before the gate's yes/no question, so that the gate shows the final text. AskUserQuestion in `output_language`, header "Encargado": "No hay nombre configurado ni se pudo leer de tu cuenta de <Jira | Plane>. ¿Qué nombre cierra el comentario?", options "Escribir el nombre" (then ask the user to type it) / "Omitir la línea". The answer, trimmed and on one line, applies to this gate only, and an empty one omits the line. Afterwards, mention `/agent-os:tracker owner` in one line. In unattended mode this is asked when the Pending Writes gate is shown, never before.
+
+Never invent the name or take it from anywhere else (git config, the OS user, the issue).
+
+**Configuring it** (`/agent-os:setup` Step 2.2, `/agent-os:tracker owner`). The name is personal and `.agent-os/config.json` may be shared through git, so it is only stored at user level. AskUserQuestion in `output_language`, header "Encargado", "¿Qué nombre cierra los comentarios de commits en el tracker? Se guarda solo en tu usuario (`~/.agent-os/profile.json`), no en el proyecto.":
+- "Mantener <display_name> (actual)": only when one is set. Nothing changes.
+- "No guardar nombre": "Se usa el de tu cuenta de <Jira | Plane> o se pregunta al comentar." Add "(Recomendado)" when no name is set. Removes `display_name`.
+- "Escribir otro": then ask the user to type it. Save it trimmed and on one line. An empty answer changes nothing.
+
+To save: read the file (create it and `~/.agent-os/` if missing), change only `display_name`, and write it back. Tell the user the result in one line.
 
 ## Write Gates
 
@@ -134,8 +181,8 @@ TRACKER: escrituras pendientes en [Jira | Plane]
 ─────────────────────────────────────────
 - Crear [Story] "[title]" en [VR]
 - Crear [N] sub-tareas bajo [VR-123]: SUB-01 …, SUB-02 …
-- Comentar commits en [VR-123] (+ [N] sub-tareas)
-[the full text of each item, collapsed per item]
+- Comentar commits en [VR-123] (+ [N] sub-tareas) · [Encargado: <name> | sin línea de encargado]
+[the full text of each item, collapsed per item, comments ending with their owner line]
 ─────────────────────────────────────────
 ```
 
@@ -143,15 +190,33 @@ An empty or negative answer writes nothing and logs `declined by user`.
 
 ## Pending Writes (unattended mode)
 
-In unattended approver mode, do not stop for `create_parent`, `create_subtasks` or `comment_commits`: append them to `task.external.pending_writes`. At the end of the run, after the Approver Decisions Report and the post-QA commands, show one Write Gate with every pending write, in order (parent, then sub-tasks, then comments). On approval run them, then apply the current route event to the new issues (`done_pipeline` if QA approved). Clear `pending_writes` either way.
+In unattended approver mode, do not stop for `create_parent`, `create_subtasks` or `comment_commits`: append them to `task.external.pending_writes`. At the end of the run, after the Approver Decisions Report, the post-QA commands and Post-QA Comment Commits (which queues its write), show one Write Gate with every pending write, in order (parent, then sub-tasks, then comments). Skip the gate when nothing is queued.
+
+Draft the queued comments when showing the gate, with Steps 5–7 of Comment Commits: when the parent or the sub-tasks are queued too, their comments name them as the issues to be created. On approval run the writes in order (comments as in Step 9), then apply the current route event to the new issues (`done_pipeline` if QA approved and not held). A comment whose issue was not created is not posted, and its commits stay pending. Clear `pending_writes` either way, logging declined comments as in Step 9 of Comment Commits, once their target has a key.
+
+## Held `done_pipeline`
+
+When a post-QA command tagged `[auto]` fails (`05-testing-qa.md` → Post-QA Command Failures), `done_pipeline` is not applied: set `task.external.held_done_pipeline = true`, unless the route entry is `null` or the task has neither an issue nor a queued `create_parent`. Clear it if that queued parent ends up not being created. Report in one line that the issue was not moved and how to recover: fix the cause (for a commit, `/agent-os:commit`), then `/agent-os:tracker sync`.
+
+Recovery, in Retry: this is the only transition of a finished task that is offered, because it never ran and the user confirms it. Read the issue's current status, then ask with AskUserQuestion, header "Mover issue": "El command [name] falló: [reason]. [KEY] está en [current]. ¿Moverlo a [route status]?":
+- "Sí, mover": apply the `done_pipeline` event (Transition protocol) and clear the flag. A failed transition goes to `sync_errors`, and the flag stays.
+- "Todavía no": nothing changes. Sync asks again next time.
+- "No, dejarlo así": clear the flag. Nothing is moved.
 
 ## Retry (`/agent-os:tracker sync`)
 
-1. For each entry in `sync_errors`: a transition is retried towards the route status of the task's **current** event (not the old one); a read is retried. Successful retries are logged and removed from `sync_errors`.
-2. `pending_writes`: show the Write Gate.
-3. Report what was fixed and what still fails.
+**Tasks covered.** A task has something to retry when it has `pending_writes`, `held_done_pipeline`, `attempting` comment entries, comment errors in `sync_errors`, or pending commits on an existing issue, or, only while it is active, any other entry in `sync_errors`. Retry covers the active task, then the finished ones (`status = "done"`, newest first) that have something to retry. With `/agent-os:tracker sync TASK-NNN`, only that task, and commits declined earlier count as pending again. Without the argument, a declined commit is not offered again. Finishing a task never closes its comment retries.
+
+A task whose `task.external.provider` is not `config.tracker.provider` is skipped, and reported in one line: its issue is in another tracker.
+
+For each task, with one Write Gate per task and the name resolved once:
+
+1. `sync_errors`, active task: a transition is retried towards the route status of the task's **current** event (not the old one); a read is retried. Successful retries are logged and removed from `sync_errors`. Finished task: transitions and reads are not retried, because the issue may have moved on since. They may be listed in one line as not retried, and do not count as something pending. The held event is the exception (Held `done_pipeline`).
+2. `pending_writes`, then Comment Commits for the pending commits, in that one gate. Comment Commits verifies earlier attempts first (its Step 2), so nothing is posted again blindly. A target's comment errors are removed from `sync_errors` once its comment is posted or declined, or when the target has no pending commits left, whether or not a gate was shown.
+3. `held_done_pipeline`: the recovery question of Held `done_pipeline`, after the comments.
+4. Report what was fixed and what still fails.
 
 ## Reporting
 
 - In each stage summary: `Tracker: [KEY] → [status]` per transition, and any error in one line.
-- In the completion report: a `### 🔗 Tracker` table (`Cuándo | Operación | Destino | Resultado`) from `sync_log`, plus the open `sync_errors` and a reminder of `/agent-os:tracker sync` when there are any.
+- In the completion report: a `### 🔗 Tracker` table (`Cuándo | Operación | Destino | Resultado`) from `sync_log`, plus the open `sync_errors`, and a reminder of `/agent-os:tracker sync` only when the task has something to retry (Retry → Tasks covered). A finished task's transition or read errors are shown without that reminder.

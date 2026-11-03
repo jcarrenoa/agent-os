@@ -75,7 +75,7 @@ Clone this repository and configure your Claude Code project settings to load it
 | `/agent-os:skills mode <stage>.<role> extend\|replace` | Set whether the plugin default (tech-adaptation) is added for a role. |
 | `/agent-os:extensions [status\|install\|uninstall\|update]` | Check or install the recommended extensions from the catalog, after approving the exact commands. |
 | `/agent-os:commit [KEY]` | One local commit per repo for the task, on a feature branch named by the project's git conventions. Never pushes. See [Git conventions](#git-conventions). |
-| `/agent-os:tracker [setup\|map\|pick\|sync\|off]` | Jira / Plane integration over MCP: connect it, re-map the board columns, pick an issue, retry failed syncs. See [Tracker](#tracker). |
+| `/agent-os:tracker [setup\|map\|pick\|sync\|owner\|off]` | Jira / Plane integration over MCP: connect it, re-map the board columns, pick an issue, retry failed syncs, set the name that closes the commits comments. See [Tracker](#tracker). |
 
 ---
 
@@ -501,7 +501,7 @@ Creates one local commit per repo with the task's changes:
 - **Branch**: commits on the task's branch; from `base_branch` it creates the feature branch; from another task's branch or another protected branch it creates it from HEAD and warns. It never commits on a protected branch.
 - **Message**: the subject from the pattern, and one body line per subtask of the repo's role.
 - **Safe by design**: no `--no-verify`, `--amend` or `--no-gpg-sign`; a failing hook leaves the changes staged and is reported. **It never pushes.**
-- Records `task.commits`, which the tracker posts as a comment (always with your approval).
+- Records `task.commits`, which the tracker posts as a comment (always with your approval). Run directly, it offers the comment right after the commits; as a post-QA command, the comment comes after the post-QA commands.
 
 Run it yourself, or let setup add it as a post-QA command (`"agent-os:commit"` in `extensions.stages.qa.commands`), gated by default.
 
@@ -536,7 +536,7 @@ In setup (and with `/agent-os:tracker map`) agent-os reads the project's real st
 | `start` | Discovery starts | In Progress |
 | `development` | Development starts (created sub-tasks: when their developer run starts) | In Progress / In Development |
 | `qa` | QA starts | QA / Testing |
-| `done_pipeline` | QA approves | Code Review (the column **before** Done: the PR is still missing) |
+| `done_pipeline` | QA approves, after the post-QA commands and the commits comment | Code Review (the column **before** Done: the PR is still missing) |
 | `blocked` | A stage is blocked | Blocked, or none |
 
 An event without a column moves nothing. In Jira the move uses the issue's available transitions; if the target status is not reachable from the current one, agent-os skips it and records the error. Done is set only if you map `done_pipeline` to it. The Atlassian MCP tools do not expose the board's column layout, so the analysis uses the statuses found in the project's issues and their transitions; you can type a status that was not found.
@@ -551,11 +551,15 @@ An event without a column moves nothing. In Jira the move uses the issue's avail
 
 In unattended approver mode, creates and comments are queued and asked together at the end of the run. Nothing else is ever written: no field edits, assignees, deletions or links.
 
-**Commits comment**: after the post-QA commands, if `task.commits` has entries (written by `/agent-os:commit` or another post-QA command), agent-os drafts one comment on the issue (and, in create mode, one per sub-task with its own commits): per repository, the branch, and per commit the short hash, the subject and 1–3 lines of what it does. Nothing else is commented.
+**Commits comment**: after the post-QA commands, or when you run `/agent-os:commit` yourself, agent-os drafts one comment on the issue (and, in create mode, one per sub-task with its own commits) with the entries of `task.commits` not commented yet: per repository, the branch, and per commit the short hash, the subject and 1–3 lines of what it does. The last line names the owner (`Encargado: <name>` / `Owner: <name>`). Nothing else is commented. `task.external.sync_log` records the hashes of each comment, so a commit is never commented twice on the same issue, and one you declined is not offered again unless you run `/agent-os:tracker sync TASK-NNN`.
+
+**Owner name**: the person using agent-os, not the issue's assignee. It comes from `display_name` in `~/.agent-os/profile.json` (set in setup or with `/agent-os:tracker owner`); otherwise from your tracker account's display name, read through MCP and not stored; otherwise you are asked at the gate, where you can type it or leave the line out. It is personal, so it is never stored in `.agent-os/config.json`, which may be shared through git, and agent-os never makes one up.
 
 ### Errors never block
 
-A tracker failure (server not connected, transition not reachable, network error) is recorded in `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries them (moving to the status of the task's current event) and asks for any pending writes. Every write is in `task.external.sync_log` and in the completion report.
+A tracker failure (server not connected, transition not reachable, network error) is recorded in `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries them (moving to the status of the task's current event) and asks for any pending writes. It also works after a task has finished: failed comments and pending writes can still be retried then, while failed moves of finished tasks are not retried, because the issue may have moved on, and tasks linked to a different tracker than the current one are skipped. A comment is recorded in the task before it is posted: if that record cannot be written, nothing is posted. Before posting again after a failed or unfinished attempt, agent-os checks the issue's comments for the commit hashes; if it cannot read them, it asks you instead of posting blindly.
+
+If a post-QA command configured with `auto: true` fails, the task still closes, the failure is recorded in `task.post_qa_failures` and shown in the final summary, and the `done_pipeline` move is held. After fixing the cause (for a commit, `/agent-os:commit`), `/agent-os:tracker sync` shows the issue's current status and asks whether to move it. Every write is in `task.external.sync_log` and in the completion report.
 
 ### Configuration example
 
