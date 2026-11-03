@@ -71,6 +71,7 @@ agent-os/
     - Before adding or re-pinning an entry, review the upstream code at that pin (install scripts, telemetry, network calls, side effects) and list the risks in the entry's `notes`.
     - Recipes never run upstream installers that change the user's Claude Code configuration (e.g. `codegraph install`).
 - Do not run commands or agents with external effects (publish, push, deploy, merge, send) automatically. They must always go through an approval gate per the `approval-gates` skill.
+  - **Documented exception — tracker status moves.** Moving an issue to a status of the `status_route` the user confirmed in setup needs no gate: that confirmation is the consent, and every move is logged. Creating issues and commenting always go through a gate. See the `tracker-sync` skill.
 
 ## Versioning
 
