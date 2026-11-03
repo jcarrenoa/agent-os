@@ -52,7 +52,7 @@ No critical or major issues:
 5b. **Tracker** (only with `config.tracker`). First read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md`, resolving the path as in Run Stage 5 if it is not absolute. Then, exactly in this order, each finished before the next:
    1. Comment Commits: its gate and its comments. In unattended approver mode it only queues the write.
    2. Unattended approver mode only: the Pending Writes gate and its writes.
-   3. The `done_pipeline` route event, never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
+   3. The `done_pipeline` route event (none with `access: read`), never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
 
    Add the Tracker table to the completion output.
 6. Set `state.json`:

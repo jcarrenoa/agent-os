@@ -233,7 +233,7 @@ After the agent returns:
   - Tracker: if you have not read the `tracker-sync` skill in this run, read it first (path in the Tracker section above). Then, exactly in this order, each finished before the next:
     1. Comment Commits: its gate and its comments. In unattended mode it only queues the write.
     2. Unattended mode only: the Pending Writes gate and its writes.
-    3. The `done_pipeline` route event, never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
+    3. The `done_pipeline` route event (none with `access: read`), never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
   - Set `state.json: current_stage = "idle", active_task_id = null`
   - Show completion summary
 
