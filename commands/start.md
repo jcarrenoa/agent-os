@@ -24,7 +24,7 @@ After confirming `.agent-os/config.json` exists, read `preferences.output_langua
 
 ## Tracker
 
-Only when `config.tracker` exists. Every tracker operation follows the `tracker-sync` skill, runs here in the main session (never in a subagent), and never blocks the pipeline: a failure is recorded in `task.external.sync_errors` and the stage continues.
+Only when `config.tracker` exists. Before any tracker operation, read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md` and follow it. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first. Every tracker operation runs here in the main session (never in a subagent), and never blocks the pipeline: a failure is recorded in `task.external.sync_errors` and the stage continues.
 
 - **Issue as input**: if the argument is an issue key or URL (`tracker-sync` → Pull) and the mode allows pull, read the issue in Step 1: the task's `title` and `description` (verbatim) come from it and `task.external` links it. In `create` mode, tell the user that pull is not enabled and treat the argument as a description.
 - **Route events** (fire them at these points): `start` when Stage 1 starts, `development` when Stage 4 starts (and per created sub-task when its developer run starts), `qa` when Stage 5 starts, `done_pipeline` last of all after an approved QA (Stage 5), `blocked` whenever a stage becomes `blocked`.
@@ -230,7 +230,7 @@ After the agent returns:
   - Set `task.status = "done"`, `task.completed_at = now`
   - In unattended mode, show the **Approver Decisions Report** (`approval-gates` skill) first, so the user sees what was decided before any command question.
   - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs, in every approver mode, unattended included; only commands tagged `[auto]` (configured with `auto: true`) run without one. If a command that ran fails, whichever its tag, follow **Post-QA Command Failures** in the workflow
-  - Tracker (`tracker-sync`), exactly in this order, each finished before the next:
+  - Tracker: if you have not read the `tracker-sync` skill in this run, read it first (path in the Tracker section above). Then, exactly in this order, each finished before the next:
     1. Comment Commits: its gate and its comments. In unattended mode it only queues the write.
     2. Unattended mode only: the Pending Writes gate and its writes.
     3. The `done_pipeline` route event, never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).

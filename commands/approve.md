@@ -47,7 +47,7 @@ If arguments were provided (`$ARGUMENTS`), record them as approval notes.
 
 Read `.agent-os/tasks/[active_task_id].json`.
 
-Follow **How to Record an Approval** in the `approval-gates` skill with `approved_by = "human"`: the stage record gets `status = "done"`, `approved_at = now`, `approved_by = "human"`; state.json adds `current_stage` to `stages_completed`, sets `current_stage = [next_stage from pending_approval]`, `stage_status = "not_started"`, `pending_approval = null` and `last_updated = now`. Then run its step 6, the tracker writes (with `config.tracker`). `/agent-os:review` uses the same steps.
+Follow **How to Record an Approval** in the `approval-gates` skill with `approved_by = "human"`: the stage record gets `status = "done"`, `approved_at = now`, `approved_by = "human"`; state.json adds `current_stage` to `stages_completed`, sets `current_stage = [next_stage from pending_approval]`, `stage_status = "not_started"`, `pending_approval = null` and `last_updated = now`. Then, with `config.tracker`, run its step 6, the tracker writes: read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md` and follow it, whether that means a gate or queueing the write. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first. `/agent-os:review` uses the same steps.
 
 ## Step 4: Advance Pipeline
 

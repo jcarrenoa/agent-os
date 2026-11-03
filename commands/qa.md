@@ -49,7 +49,7 @@ No critical or major issues:
    - Every command tagged `[gate]` (the default for any command not configured with `auto: true`): present an approval gate (approval-gates skill) before running it, in every approver mode, unattended included. The gate names the command and states that it may have external effects (push, deploy, publish, posting comments). Wait for the user's explicit approval; if declined, skip it and note it in the summary.
    - Only commands tagged `[auto]` run without a gate.
    - If a command that ran fails, whichever its tag, follow **Post-QA Command Failures** in the workflow.
-5b. **Tracker** (only with `config.tracker`, `tracker-sync` skill), exactly in this order, each finished before the next:
+5b. **Tracker** (only with `config.tracker`). First read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md`, resolving the path as in Run Stage 5 if it is not absolute. Then, exactly in this order, each finished before the next:
    1. Comment Commits: its gate and its comments. In unattended approver mode it only queues the write.
    2. Unattended approver mode only: the Pending Writes gate and its writes.
    3. The `done_pipeline` route event, never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
