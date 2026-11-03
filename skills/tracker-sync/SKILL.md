@@ -1,7 +1,7 @@
 ---
 name: tracker-sync
 description: This skill should be used whenever agent-os needs to read from or write to the project's issue tracker (Jira or Plane) configured in config.tracker — starting a task from an issue key or URL ("/agent-os:start VR-123"), picking an issue from the board, analysing the board's columns to build the route of action, moving the issue through the route as the pipeline advances, creating the parent issue and sub-tasks, or posting the commits comment. Only the orchestrating command uses it, never a subagent.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Tracker Sync Protocol
@@ -25,7 +25,8 @@ Applies only when `.agent-os/config.json` has a `tracker` key. Without it, skip 
   Never edit fields, assignees, descriptions or sprints, never delete, never link, never transition to a status that is not in `status_route`. Never move to Done unless the user mapped `done_pipeline` to Done.
 - **Unattended approver mode** does not skip these gates: create and comment writes are queued in `task.external.pending_writes` and asked together at the end of the run (Pending Writes). Transitions still run.
 - **Never block the pipeline.** A failed or impossible tracker operation is appended to `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries.
-- **Log every write** in `task.external.sync_log` (`at`, `event`, `operation`, `target`, `result`; a comment is recorded before it is posted, Comment Commits Step 9), and show the writes of a stage in that stage's summary (`Tracker: VR-123 → In Progress`). The final report has a Tracker section.
+- **Log every write** in `task.external.sync_log` (`at`, `event`, `operation`, `target`, `result`; a comment is recorded before it is posted, Comment Commits Step 9), and show the writes of a stage in that stage's summary (`Tracker: VR-123 → In Progress`). The final report has a Tracker section. `event` is the route event, the write (`create_parent`, `create_subtasks`, `comment_commits`), `pull` or `retry`, never a gate name such as `requirements-approved`.
+- **A linked issue means `task.external.key`.** `task.external` can exist without a key, to hold the log, the errors and the queue of a task whose issue is not created. It then has only `provider` (`config.tracker.provider`) and those fields, and it does not count as a linked issue. If one of those has to be written and `task.external` is missing, create it that way first.
 
 ## Tool Discovery
 
@@ -73,14 +74,14 @@ Used by `/agent-os:setup` Step 2.2 and `/agent-os:tracker map`. Builds `tracker.
 
 ## Route Events
 
-The commands fire these events; each one moves the parent issue (if `task.external` exists) and, in create mode, the affected created sub-tasks to `status_route.<event>`:
+The commands fire these events; each one moves the parent issue (if the task has a linked issue) and, in create mode, the affected created sub-tasks to `status_route.<event>`:
 
 | Event | Fired by | Sub-tasks moved (create mode) |
 |---|---|---|
 | `start` | discovery start (`/agent-os:start`, `/agent-os:discover`) | — |
 | `development` | development start (`/agent-os:develop`, Stage 4 of start) | each sub-task when its developer run starts |
 | `qa` | QA start | all created sub-tasks |
-| `done_pipeline` | QA approved, last of all: after the post-QA commands, Comment Commits and the Pending Writes gate. Held if an `[auto]` command failed (Held `done_pipeline`) | all created sub-tasks |
+| `done_pipeline` | QA approved, last of all: after the post-QA commands, Comment Commits and the Pending Writes gate. Held only if a post-QA command failed (Held `done_pipeline`): a declined or failed comment does not hold it | all created sub-tasks |
 | `blocked` | any stage set to `blocked` | the sub-tasks of the blocked run, or all |
 
 **Transition protocol**:
@@ -108,14 +109,16 @@ Only when `tracker.mode` is `pull` or `both`.
 
 ## Create
 
-Only when `tracker.mode` is `create` or `both` and the task has no `task.external` (a pulled task never creates a parent).
+Only when `tracker.mode` is `create` or `both`. A pulled task never creates anything. Log both writes in `task.external.sync_log` with `event` = the write, `operation: "create"`, and `target`: the new key, or `parent` / the `SUB-NN` when nothing was created.
 
-**`create_parent`**, after the requirements are approved (by the human or the approver):
+Each create runs once, however many callers fire it. Skip `create_parent` when the task has a linked issue, when it is already in `pending_writes`, or when `sync_log` or `sync_errors` has an entry with `event: "create_parent"`. Skip `create_subtasks` when it is already in `pending_writes`, or when `sync_log` has an entry with `event: "create_subtasks"` and `result: "declined by user"`; otherwise draft only the subtasks not yet in `task.external.subtasks`, and stop if none is left.
+
+**`create_parent`**, after the requirements are approved (by the human or the approver), only if the task has no linked issue:
 1. Draft: type `jira.parent_type` (Plane: a work item), summary = task title, description = the user stories with their acceptance criteria (or the functional REQs), then non-functional requirements and out of scope, in `output_language`.
-2. Gate (Write Gates). On approval: create it, set `task.external = { provider, key, id, url, origin: "created" }`, log it, then apply the current route event (`start`).
+2. Gate (Write Gates). On approval: create it, add `key`, `id`, `url` and `origin: "created"` to `task.external`, keeping its other fields, log it, then apply the current route event (`start`).
 3. Declined: log `result: "declined by user"`; the task continues without a tracker issue.
 
-**`create_subtasks`**, after the plan is approved, only if the parent exists:
+**`create_subtasks`**, after the plan is approved, only if agent-os created the parent (`origin: "created"`) or its `create_parent` is queued in `pending_writes`:
 1. Draft one sub-task per subtask: type `jira.subtask_type` (Plane: a work item with `parent`), parent = `task.external.key`, summary = `SUB-NN: <title>`, description = its criterion and the requirement IDs it covers, role (`backend` / `frontend`) as a label or component (`jira.role_field`; Plane: a label).
 2. One gate for all of them (Write Gates). On approval: create them, store `task.external.subtasks["SUB-NN"] = { key, id }`, log each one.
 
@@ -137,7 +140,7 @@ Runs at three points:
 | `failed` | The call returned an error. The call may still have reached the tracker. The error is in `sync_errors` |
 | `declined by user` | The user answered no at the gate |
 
-1. If the task has no `task.external` and no queued `create_parent`: stop, silently. If `task.external.provider` is not `config.tracker.provider` (the tracker changed since), say so in one line and stop.
+1. If the task has no linked issue and no queued `create_parent`: stop, silently. If `task.external.provider` is not `config.tracker.provider` (the tracker changed since), say so in one line and stop.
 2. **Verify earlier attempts.** For each `attempting` entry, and each `failed` entry with commits still pending, read that issue's comments (Read comments) and look for the entry's hashes. A comment is posted as a whole, so one hash found means `posted`. None found means `failed`. If the comments cannot be read (no tool, or the read fails), the entry stays as it is.
 3. If no target has pending commits or `attempting` entries: stop, silently.
 4. **Post-QA in unattended approver mode**: append `{ operation: "comment_commits", target: "parent", queued_at }` to `pending_writes` (once) and stop. The comments are drafted when the Pending Writes gate is shown. Manual and Retry were asked for by the user: they always continue to the gate now.
@@ -192,11 +195,13 @@ An empty or negative answer writes nothing and logs `declined by user`.
 
 In unattended approver mode, do not stop for `create_parent`, `create_subtasks` or `comment_commits`: append them to `task.external.pending_writes`. At the end of the run, after the Approver Decisions Report, the post-QA commands and Post-QA Comment Commits (which queues its write), show one Write Gate with every pending write, in order (parent, then sub-tasks, then comments). Skip the gate when nothing is queued.
 
-Draft the queued comments when showing the gate, with Steps 5–7 of Comment Commits: when the parent or the sub-tasks are queued too, their comments name them as the issues to be created. On approval run the writes in order (comments as in Step 9), then apply the current route event to the new issues (`done_pipeline` if QA approved and not held). A comment whose issue was not created is not posted, and its commits stay pending. Clear `pending_writes` either way, logging declined comments as in Step 9 of Comment Commits, once their target has a key.
+Draft everything queued when showing the gate. Comments use Steps 5–7 of Comment Commits: when the parent or the sub-tasks are queued too, all their commits are pending, and their comments name them as the issues to be created. Sub-tasks are drafted with the parent as the issue to be created.
+
+On approval run the writes in order: the parent first, then the sub-tasks under its new key, then the comments (as in Step 9), and then apply the current route event to the new issues (`done_pipeline` if QA approved and not held). If the parent is not created, nothing that depends on it runs: no sub-tasks and no comments. If the gate is declined, log `declined by user` for the creates and create nothing. Clear `pending_writes` either way. Declined comments are logged as in Step 9 of Comment Commits only when their target already has a key; otherwise their commits simply stay pending.
 
 ## Held `done_pipeline`
 
-When a post-QA command tagged `[auto]` fails (`05-testing-qa.md` → Post-QA Command Failures), `done_pipeline` is not applied: set `task.external.held_done_pipeline = true`, unless the route entry is `null` or the task has neither an issue nor a queued `create_parent`. Clear it if that queued parent ends up not being created. Report in one line that the issue was not moved and how to recover: fix the cause (for a commit, `/agent-os:commit`), then `/agent-os:tracker sync`.
+When a post-QA command fails (`05-testing-qa.md` → Post-QA Command Failures), `done_pipeline` is not applied: set `task.external.held_done_pipeline = true`, unless the route entry is `null` or the task has neither an issue nor a queued `create_parent`. Clear it if that queued parent ends up not being created. Report in one line that the issue was not moved and how to recover: fix the cause (for a commit, `/agent-os:commit`), then `/agent-os:tracker sync`.
 
 Recovery, in Retry: this is the only transition of a finished task that is offered, because it never ran and the user confirms it. Read the issue's current status, then ask with AskUserQuestion, header "Mover issue": "El command [name] falló: [reason]. [KEY] está en [current]. ¿Moverlo a [route status]?":
 - "Sí, mover": apply the `done_pipeline` event (Transition protocol) and clear the flag. A failed transition goes to `sync_errors`, and the flag stays.

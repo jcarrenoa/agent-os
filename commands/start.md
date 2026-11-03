@@ -127,7 +127,7 @@ Without approver review, or once approved:
 - Add `"planning"` to `stages_completed` in state.json.
 - Update `current_stage = "design"`.
 
-Tracker: run `create_subtasks` (`tracker-sync` → Create) when the task has an issue created by agent-os.
+Tracker: run `create_subtasks` (`tracker-sync` → Create) when the task has an issue created by agent-os, or its `create_parent` is queued.
 
 ---
 
@@ -229,11 +229,11 @@ After the agent returns:
   - Add `"qa"` to `stages_completed`
   - Set `task.status = "done"`, `task.completed_at = now`
   - In unattended mode, show the **Approver Decisions Report** (`approval-gates` skill) first, so the user sees what was decided before any command question.
-  - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs, in every approver mode, unattended included; only commands tagged `[auto]` (configured with `auto: true`) run without one. If one fails, follow **Post-QA Command Failures** in the workflow
+  - Run any post-QA Commands from extensions: every command tagged `[gate]` (the default) requires an approval gate before it runs, in every approver mode, unattended included; only commands tagged `[auto]` (configured with `auto: true`) run without one. If a command that ran fails, whichever its tag, follow **Post-QA Command Failures** in the workflow
   - Tracker (`tracker-sync`), exactly in this order, each finished before the next:
     1. Comment Commits: its gate and its comments. In unattended mode it only queues the write.
     2. Unattended mode only: the Pending Writes gate and its writes.
-    3. The `done_pipeline` route event, never before steps 1 and 2 are finished, and not at all when it is held (Held `done_pipeline`).
+    3. The `done_pipeline` route event, never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
   - Set `state.json: current_stage = "idle", active_task_id = null`
   - Show completion summary
 

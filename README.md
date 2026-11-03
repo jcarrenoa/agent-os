@@ -549,7 +549,7 @@ An event without a column moves nothing. In Jira the move uses the issue's avail
 | Creating the parent issue, creating the sub-tasks | Always asked, in every mode |
 | The commits comment | Always asked, in every mode |
 
-In unattended approver mode, creates and comments are queued and asked together at the end of the run. Nothing else is ever written: no field edits, assignees, deletions or links.
+In unattended approver mode, creates and comments are queued and asked together at the end of the run, in one gate: the parent, then its sub-tasks, then the comments. If the parent is not created, neither are the sub-tasks. Nothing else is ever written: no field edits, assignees, deletions or links.
 
 **Commits comment**: after the post-QA commands, or when you run `/agent-os:commit` yourself, agent-os drafts one comment on the issue (and, in create mode, one per sub-task with its own commits) with the entries of `task.commits` not commented yet: per repository, the branch, and per commit the short hash, the subject and 1–3 lines of what it does. The last line names the owner (`Encargado: <name>` / `Owner: <name>`). Nothing else is commented. `task.external.sync_log` records the hashes of each comment, so a commit is never commented twice on the same issue, and one you declined is not offered again unless you run `/agent-os:tracker sync TASK-NNN`.
 
@@ -559,7 +559,7 @@ In unattended approver mode, creates and comments are queued and asked together 
 
 A tracker failure (server not connected, transition not reachable, network error) is recorded in `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries them (moving to the status of the task's current event) and asks for any pending writes. It also works after a task has finished: failed comments and pending writes can still be retried then, while failed moves of finished tasks are not retried, because the issue may have moved on, and tasks linked to a different tracker than the current one are skipped. A comment is recorded in the task before it is posted: if that record cannot be written, nothing is posted. Before posting again after a failed or unfinished attempt, agent-os checks the issue's comments for the commit hashes; if it cannot read them, it asks you instead of posting blindly.
 
-If a post-QA command configured with `auto: true` fails, the task still closes, the failure is recorded in `task.post_qa_failures` and shown in the final summary, and the `done_pipeline` move is held. After fixing the cause (for a commit, `/agent-os:commit`), `/agent-os:tracker sync` shows the issue's current status and asks whether to move it. Every write is in `task.external.sync_log` and in the completion report.
+The `done_pipeline` move runs last. A declined or failed commits comment does not stop it, so the issue still advances. Only a failed post-QA command does: if a command configured with `auto: true`, or one you approved at its gate, fails, the task still closes, the failure is recorded in `task.post_qa_failures` and shown in the final summary, and the `done_pipeline` move is held. After fixing the cause (for a commit, `/agent-os:commit`), `/agent-os:tracker sync` shows the issue's current status and asks whether to move it. Every write is in `task.external.sync_log` and in the completion report.
 
 ### Configuration example
 

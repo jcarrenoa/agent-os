@@ -47,11 +47,12 @@ No critical or major issues:
 4. Set `task.status = "done"`, `task.completed_at = now`.
 5. **Post-QA commands**: In unattended approver mode, show the **Approver Decisions Report** (`approval-gates` skill) first. If the extension resolution result includes Post-QA commands, run them in the listed order:
    - Every command tagged `[gate]` (the default for any command not configured with `auto: true`): present an approval gate (approval-gates skill) before running it, in every approver mode, unattended included. The gate names the command and states that it may have external effects (push, deploy, publish, posting comments). Wait for the user's explicit approval; if declined, skip it and note it in the summary.
-   - Only commands tagged `[auto]` run without a gate. If one fails, follow **Post-QA Command Failures** in the workflow.
+   - Only commands tagged `[auto]` run without a gate.
+   - If a command that ran fails, whichever its tag, follow **Post-QA Command Failures** in the workflow.
 5b. **Tracker** (only with `config.tracker`, `tracker-sync` skill), exactly in this order, each finished before the next:
    1. Comment Commits: its gate and its comments. In unattended approver mode it only queues the write.
    2. Unattended approver mode only: the Pending Writes gate and its writes.
-   3. The `done_pipeline` route event, never before steps 1 and 2 are finished, and not at all when it is held (Held `done_pipeline`).
+   3. The `done_pipeline` route event, never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
 
    Add the Tracker table to the completion output.
 6. Set `state.json`:

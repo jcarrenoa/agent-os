@@ -47,7 +47,7 @@ If arguments were provided (`$ARGUMENTS`), record them as approval notes.
 
 Read `.agent-os/tasks/[active_task_id].json`.
 
-Follow **How to Record an Approval** in the `approval-gates` skill with `approved_by = "human"`: the stage record gets `status = "done"`, `approved_at = now`, `approved_by = "human"`; state.json adds `current_stage` to `stages_completed`, sets `current_stage = [next_stage from pending_approval]`, `stage_status = "not_started"`, `pending_approval = null` and `last_updated = now`. `/agent-os:review` uses the same steps.
+Follow **How to Record an Approval** in the `approval-gates` skill with `approved_by = "human"`: the stage record gets `status = "done"`, `approved_at = now`, `approved_by = "human"`; state.json adds `current_stage` to `stages_completed`, sets `current_stage = [next_stage from pending_approval]`, `stage_status = "not_started"`, `pending_approval = null` and `last_updated = now`. Then run its step 6, the tracker writes (with `config.tracker`). `/agent-os:review` uses the same steps.
 
 ## Step 4: Advance Pipeline
 

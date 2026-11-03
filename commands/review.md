@@ -74,7 +74,7 @@ An empty or unclear answer is "Cancelar". Only an explicit "Aprobar" approves.
 
 ### Aprobar
 
-Follow **How to Record an Approval** in the `approval-gates` skill with `approved_by = "human"`: the same state writes as `/agent-os:approve` (its Step 3). The approver's verdict does not block it. Then tell the user what is next, as in Step 4 of `/agent-os:approve`.
+Follow **How to Record an Approval** in the `approval-gates` skill with `approved_by = "human"`: the same state writes as `/agent-os:approve` (its Step 3), and its step 6, the tracker writes (with `config.tracker`). The approver's verdict does not block it. Then tell the user what is next, as in Step 4 of `/agent-os:approve`.
 
 ### Pedir cambios
 

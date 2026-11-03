@@ -164,11 +164,12 @@
     "external": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider", "key", "origin"],
-      "description": "The tracker issue linked to this task (tracker-sync skill). Missing: no tracker issue.",
+      "required": ["provider"],
+      "dependencies": { "key": ["origin"], "origin": ["key"] },
+      "description": "Tracker data of this task (tracker-sync skill). The task has a linked issue only when `key` is present; without it, this object only holds the log, errors and queue of an issue not created yet. Missing: nothing tracker-related happened.",
       "properties": {
         "provider": { "type": "string", "enum": ["jira", "plane"], "description": "Tracker." },
-        "key": { "type": "string", "description": "Issue key, e.g. VR-123 or REACH-12. Also used in branch names (feature/VR-123-...)." },
+        "key": { "type": "string", "description": "Issue key, e.g. VR-123 or REACH-12. Also used in branch names (feature/VR-123-...). Its presence is what makes the issue linked." },
         "id": { "type": "string", "description": "Tracker internal ID (Jira issue id, Plane work item UUID)." },
         "url": { "type": "string", "description": "Browser URL of the issue." },
         "origin": { "type": "string", "enum": ["pulled", "created"], "description": "pulled = existing issue the task started from; created = agent-os created it." },
@@ -243,7 +244,7 @@
         },
         "held_done_pipeline": {
           "type": "boolean",
-          "description": "true = the done_pipeline route event was not applied because a post-QA command tagged [auto] failed (see post_qa_failures). /agent-os:tracker sync offers the move and clears it (tracker-sync skill, Held done_pipeline)."
+          "description": "true = the done_pipeline route event was not applied because a post-QA command failed (see post_qa_failures). /agent-os:tracker sync offers the move and clears it (tracker-sync skill, Held done_pipeline)."
         },
         "sync_errors": {
           "type": "array",
@@ -272,7 +273,7 @@
     },
     "post_qa_failures": {
       "type": "array",
-      "description": "Post-QA commands tagged [auto] that failed or could not run (05-testing-qa workflow, Post-QA Command Failures). Shown in the completion summary. The task can be done with entries here.",
+      "description": "Post-QA commands, tagged [auto] or approved at their gate, that failed or could not run (05-testing-qa workflow, Post-QA Command Failures). Shown in the completion summary. The task can be done with entries here.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -409,9 +410,9 @@
       "description": "One tracker operation.",
       "properties": {
         "at": { "type": "string", "format": "date-time", "description": "When it ran." },
-        "event": { "type": "string", "enum": ["pull", "start", "development", "qa", "done_pipeline", "blocked", "create_parent", "create_subtasks", "comment_commits", "retry"], "description": "Pipeline event that triggered it." },
+        "event": { "type": "string", "enum": ["pull", "start", "development", "qa", "done_pipeline", "blocked", "create_parent", "create_subtasks", "comment_commits", "retry"], "description": "Pipeline event that triggered it. Never a gate name such as requirements-approved." },
         "operation": { "type": "string", "enum": ["read", "transition", "create", "comment"], "description": "What was done." },
-        "target": { "type": "string", "description": "Issue or sub-task key." },
+        "target": { "type": "string", "description": "Issue or sub-task key, or 'parent' / the SUB ID when no issue was created." },
         "result": { "type": "string", "description": "e.g. 'In Progress', 'created VR-130', or the error / skip reason (never a token). Comments in sync_log use a closed list (see external.sync_log); in sync_errors, the error." },
         "commits": {
           "type": "array",

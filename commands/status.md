@@ -57,7 +57,7 @@ Pipeline State
 [If active task exists]
 ─────────────────────────────────────────
 Active Task: [TASK-NNN] — [title]
-  Issue: [KEY (url) — status, N sub-tasks · N sync errors (/agent-os:tracker sync) · omit without task.external]
+  Issue: [KEY (url) — status, N sub-tasks · N sync errors (/agent-os:tracker sync) · without task.external.key: "sin issue · N sync errors" if there are any, otherwise omit]
 
   Discovery:   [✓ done | ⏳ in_progress | ⟳ awaiting_approval | ○ not_started | ✗ blocked] [approved by: human | approver] [approver: APPROVE | REQUEST_CHANGES, round N, N auto revisions, N change requests] [unresolved: IDs]
   Planning:    [✓ | ⏳ | ⟳ | ○ | ✗] [approved by ...] [approver: ...] [unresolved: ...]
