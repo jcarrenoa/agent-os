@@ -37,7 +37,7 @@ Project:  [project_name]
 Stack:    [frontend] + [backend]
 Approver: [off | advisory | autonomous (max_revisions N) | unattended (max_revisions N)] — gates: [requirements, planning, design | —]
 Requirements format: [REQ | user stories]
-Tracker:  [none | Jira VR (MCP, mode both) | Plane REACH (MCP, mode pull)]
+Tracker:  [none | Jira VR (MCP, mode both, access write) | Plane REACH (MCP, mode pull, access read)]; a missing access is write
 Git:      [defaults | branch_pattern from base_branch · commit_pattern; "per repo" when config.git.repos is set] · commit after QA: [gate | auto | off]
 
 Pipeline State

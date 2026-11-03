@@ -520,6 +520,15 @@ Only the orchestrating command talks to the tracker (the `tracker-sync` skill), 
 
 The server name you choose is stored in `tracker.mcp.server`; agent-os finds the tools by that prefix and tells you if one it needs is missing. Approve the MCP tools in Claude Code's permission prompts, or allow them in your settings.
 
+### Access
+
+Setup asks what agent-os may do in the tracker, and stores it in `tracker.access`:
+
+- `read` (recommended): it reads issues and statuses, and creates, comments and moves nothing. Only `pull` mode is available, and setup skips the route, the types to create and the owner name. The pipeline runs as usual: where a write would go, it says once per run that the tracker is read-only. `/agent-os:commit`, `/agent-os:tracker sync` and `map` respect it too.
+- `write`: everything described below. A config without `access` behaves as `write`.
+
+To change it: `/agent-os:tracker setup`.
+
 ### Modes
 
 - `pull`: start from an existing issue. `/agent-os:start VR-123` (or its URL) reads the summary, description and acceptance criteria verbatim as the task description, and keeps the issue's existing sub-tasks as reference for the planner. `/agent-os:tracker pick` (or `/agent-os:start` without arguments) lists the issues in your intake column and lets you choose.
@@ -566,6 +575,7 @@ The `done_pipeline` move runs last. A declined or failed commits comment does no
 ```json
 "tracker": {
   "provider": "jira",
+  "access": "write",
   "connection": "mcp",
   "mcp": { "server": "atlassian" },
   "mode": "both",

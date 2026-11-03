@@ -1,12 +1,26 @@
 ---
 name: tracker-sync
 description: This skill should be used whenever agent-os needs to read from or write to the project's issue tracker (Jira or Plane) configured in config.tracker — starting a task from an issue key or URL ("/agent-os:start VR-123"), picking an issue from the board, analysing the board's columns to build the route of action, moving the issue through the route as the pipeline advances, creating the parent issue and sub-tasks, or posting the commits comment. Only the orchestrating command uses it, never a subagent.
-version: 1.5.0
+version: 1.6.0
 ---
 
 # Tracker Sync Protocol
 
 Applies only when `.agent-os/config.json` has a `tracker` key. Without it, skip every step that mentions the tracker: nothing changes.
+
+## Read-Only Access
+
+`tracker.access` says what agent-os may do in the tracker. Missing means `write`, so existing configs do not change. This section overrides every other one in this skill.
+
+With `access: "read"`:
+
+- **Nothing is written, offered or queued**: no `create_parent`, `create_subtasks`, `comment_commits` or route transition, no gate, nothing added to `pending_writes`, and `held_done_pipeline` is not set. This covers every command that uses this skill, including `/agent-os:commit`, `/agent-os:approve` and `/agent-os:review`.
+- **Reads still work**: Pull and Pick read issues, and never move them.
+- **Say it once per run**, at the first write skipped, in one line in `output_language`: "Tracker en solo lectura: no se escribe nada en <Jira | Plane>."
+- **It is not an error**: nothing goes to `sync_errors`, there is no reminder of `/agent-os:tracker sync`, and the pipeline continues.
+- **`/agent-os:tracker sync`** retries only the reads of the active task. Writes queued before the change to `read` stay in the task file and are not offered.
+- **`/agent-os:tracker map`** does nothing, because there is no route: say so in one line.
+- **Setup** (`/agent-os:setup` Step 2.2): the only mode is `pull`, and the questions about the route, the types to create and the owner name are skipped.
 
 ## Rules
 

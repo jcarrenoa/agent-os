@@ -19,6 +19,7 @@ Write everything in `preferences.output_language`. Before any tracker operation,
 ## 🔗 Tracker — [Jira | Plane] por MCP (`[mcp.server]`)
 | | |
 |---|---|
+| Acceso | [Solo lectura · Lectura y escritura, also when `access` is missing] |
 | Proyecto | [jira.project_key + site_url · or plane workspace_slug / project_identifier] |
 | Modo | [pull · create · both] |
 | Tarea activa | [TASK-NNN → KEY (url), estado · or "sin issue"] |
@@ -38,13 +39,15 @@ Write everything in `preferences.output_language`. Before any tracker operation,
 | blocked | etapa bloqueada | ... |
 ```
 
+With `access: "read"`, omit the "Ruta de acción" section and every row about writes (errors, pending writes, finished tasks to retry, owner).
+
 ## setup
 
 Run **Step 2.2: Tracker** of `/agent-os:setup` (same questions and checks), then write only the `tracker` key of `config.json` (read it first; keep every other key) and set `updated_at`. The name from that step's owner question goes to `~/.agent-os/profile.json`, never to `config.json`.
 
 ## map
 
-Run **Board Analysis** of the `tracker-sync` skill and write the new `tracker.status_route`. Nothing else changes.
+Run **Board Analysis** of the `tracker-sync` skill and write the new `tracker.status_route`. Nothing else changes. With `access: "read"`, follow **Read-Only Access** in the skill instead.
 
 ## pick
 
@@ -52,7 +55,7 @@ Only when `tracker.mode` is `pull` or `both` (otherwise say so and stop). If a t
 
 ## sync
 
-Works with or without an active task. Read the task files in `.agent-os/tasks/` and run **Retry** of the `tracker-sync` skill for the tasks it covers (`sync TASK-NNN`: only that task). Show the result, or say in one line that nothing is pending.
+Works with or without an active task. Read the task files in `.agent-os/tasks/` and run **Retry** of the `tracker-sync` skill for the tasks it covers (`sync TASK-NNN`: only that task). Show the result, or say in one line that nothing is pending. With `access: "read"`, **Read-Only Access** in the skill limits what runs.
 
 ## owner
 
