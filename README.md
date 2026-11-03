@@ -632,6 +632,6 @@ GitHub: [github.com/jcarrenoa](https://github.com/jcarrenoa)
 
 ## License
 
-© 2026 Aaron Jose Rodriguez Carreño — [PolyForm Noncommercial 1.0.0](LICENSE)
+© 2026 Aaron Jose Rodriguez Carreño — [MIT](LICENSE)
 
-Use, modification, and distribution permitted for non-commercial purposes. Commercial use requires express authorization from the author.
+Anyone may use, copy, modify, merge, publish, distribute, sublicense and sell copies, for any purpose, including commercial use, as long as the copyright notice and the license text are kept. The software is provided as is, without warranty.
