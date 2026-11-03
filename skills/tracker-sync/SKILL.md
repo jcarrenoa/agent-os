@@ -1,7 +1,7 @@
 ---
 name: tracker-sync
 description: This skill should be used whenever agent-os needs to read from or write to the project's issue tracker (Jira or Plane) configured in config.tracker — starting a task from an issue key or URL ("/agent-os:start VR-123"), picking an issue from the board, analysing the board's columns to build the route of action, moving the issue through the route as the pipeline advances, creating the parent issue and sub-tasks, or posting the commits comment. Only the orchestrating command uses it, never a subagent.
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Tracker Sync Protocol
@@ -191,13 +191,20 @@ TRACKER: escrituras pendientes en [Jira | Plane]
 
 An empty or negative answer writes nothing and logs `declined by user`.
 
-## Pending Writes (unattended mode)
+A gated write is resolved in this run or stays queued. It is never lost:
+
+1. Show the block and ask. If AskUserQuestion is not available, show the block as text, ask yes or no, and end the turn waiting for the answer. Never replace the gate with a note or a suggestion to use `/agent-os:tracker sync`.
+2. Only if the gate really cannot be shown, because the run is ending, append the write to `task.external.pending_writes` and say so: `/agent-os:tracker sync` will offer it. If that cannot be written either, tell the user in one line what was not written.
+
+## Pending Writes
+
+Queued writes wait here for their gate. In unattended approver mode they are always queued. In any other mode a write is queued only when its gate could not be shown (Write Gates), and it waits for `/agent-os:tracker sync`.
 
 In unattended approver mode, do not stop for `create_parent`, `create_subtasks` or `comment_commits`: append them to `task.external.pending_writes`. At the end of the run, after the Approver Decisions Report, the post-QA commands and Post-QA Comment Commits (which queues its write), show one Write Gate with every pending write, in order (parent, then sub-tasks, then comments). Skip the gate when nothing is queued.
 
 Draft everything queued when showing the gate. Comments use Steps 5–7 of Comment Commits: when the parent or the sub-tasks are queued too, all their commits are pending, and their comments name them as the issues to be created. Sub-tasks are drafted with the parent as the issue to be created.
 
-On approval run the writes in order: the parent first, then the sub-tasks under its new key, then the comments (as in Step 9), and then apply the current route event to the new issues (`done_pipeline` if QA approved and not held). If the parent is not created, nothing that depends on it runs: no sub-tasks and no comments. If the gate is declined, log `declined by user` for the creates and create nothing. Clear `pending_writes` either way. Declined comments are logged as in Step 9 of Comment Commits only when their target already has a key; otherwise their commits simply stay pending.
+On approval run the writes in order: the parent first, then the sub-tasks under its new key, then the comments (as in Step 9), and then apply the current route event to the new issues (`done_pipeline` if QA approved and not held). If the parent is not created, nothing that depends on it runs: no sub-tasks and no comments. If the gate is declined, log `declined by user` for the creates and create nothing. Clear `pending_writes` once the gate is answered, either way; if it could not be shown, they stay queued. Declined comments are logged as in Step 9 of Comment Commits only when their target already has a key; otherwise their commits simply stay pending.
 
 ## Held `done_pipeline`
 
