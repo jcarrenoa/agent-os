@@ -270,6 +270,7 @@ Proposes how `/agent-os:commit` names branches and writes commit subjects. Nothi
 
      When none of them is clear, leave it `null` and say so.
    - `protected_branches`: the long-lived branches that exist (`main`, `master`, `qa`, `dev`, `develop`, `staging`, and `release/*` when release branches exist).
+   - `epic_branches`: `true` when the branch model of signal 2 above describes a branch per epic with the stories born from it, or when at least 3 branches named only with a key (`VR-54`) are ancestors of the same branch that is not long-lived (`git -C <repo> merge-base --is-ancestor <story> <branch>`). Then propose `branch_pattern: "{key}"` too, unless the stories carry a slug. Otherwise leave it out. `epic_branch_map` is never proposed: it is filled when a story of each epic starts.
    - A field without a clear pattern in at least 5 subjects or branches stays empty (`—`): `/agent-os:commit` uses its default.
 2. Show the proposal, one column per repo (a single column when they agree), with an example subject for this project:
    ```markdown
@@ -278,6 +279,7 @@ Proposes how `/agent-os:commit` names branches and writes commit subjects. Nothi
    |---|---|---|
    | Rama base | qa | qa |
    | Rama | feature/{key}-{slug} | feature/{key}-{slug} |
+   | Ramas por épica | no | no |
    | Commit | {key} \| {type} : {summary} | {key} \| {type} : {summary} |
    | Commit sin key | {type}: {summary} | {type}: {summary} |
    | Tipos | feat, fix, chore | feat, fix, chore |
@@ -376,7 +378,7 @@ After confirmation, create these files and directories:
   },
   "approver": "[only if Step 2.1 enabled it: { enabled, mode, gates, max_revisions }]",
   "tracker": "[only if Step 2.2 connected one: { provider, access, connection, mcp, mode, jira | plane, pick_assigned_to_me, status_route }]",
-  "git": "[only if Step 2.3 kept conventions: { base_branch, branch_pattern, commit_pattern, commit_pattern_no_key, commit_types, commit_language, protected_branches, repos? }]",
+  "git": "[only if Step 2.3 kept conventions: { base_branch, branch_pattern, commit_pattern, commit_pattern_no_key, commit_types, commit_language, protected_branches, epic_branches?, repos? }]",
   "extensions": "[from Step 2.5, plus agent-os:commit in stages.qa.commands if Step 2.3 enabled it]"
 }
 ```

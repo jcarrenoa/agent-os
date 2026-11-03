@@ -1,7 +1,7 @@
 ---
 name: tracker-sync
 description: This skill should be used whenever agent-os needs to read from or write to the project's issue tracker (Jira or Plane) configured in config.tracker — starting a task from an issue key or URL ("/agent-os:start VR-123"), picking an issue from the board, analysing the board's columns to build the route of action, moving the issue through the route as the pipeline advances, creating the parent issue and sub-tasks, or posting the commits comment. Only the orchestrating command uses it, never a subagent.
-version: 1.6.0
+version: 1.7.0
 ---
 
 # Tracker Sync Protocol
@@ -117,8 +117,9 @@ Only when `tracker.mode` is `pull` or `both`.
 
 1. Read the issue. If it does not exist or cannot be read: tell the user and stop (nothing was created).
 2. Fill the new task: `title` = the issue summary; `description` = the issue description, verbatim (converted to plain Markdown), followed by the acceptance criteria field when the issue has one (under a heading "Acceptance criteria"). Nothing is added or summarised.
-3. `task.external = { provider, key, id, url, origin: "pulled", status, existing_subtasks: [{ key, summary, status }] }`. Log a `pull` / `read` entry.
-4. The planner may cite `existing_subtasks` keys in its subtasks; agent-os never modifies them.
+3. `task.external = { provider, key, id, url, origin: "pulled", status, epic, existing_subtasks: [{ key, summary, status }] }`. Log a `pull` / `read` entry.
+4. **Epic** (Jira): `epic = { key, summary }` of the issue's parent when that parent is an epic, read from the same issue response (seen as `fields.parent`, with its issue type). A parent is an epic when its issue type has hierarchy level 1, or, when the level is not given, its type name means epic in any language (`Epic`, `Épica`). A sub-task's parent is a story, not an epic: then read that story and take its parent the same way. No parent, or a parent that is not an epic: no `epic` field. Plane: no `epic` field. It is a read, so it also runs with `access: "read"`.
+5. The planner may cite `existing_subtasks` keys in its subtasks; agent-os never modifies them.
 
 **Pick** (`/agent-os:tracker pick`, or `/agent-os:start` without arguments when the mode allows pull):
 1. Search the issues in `status_route.intake` (Jira: `project = <KEY> AND status = "<intake>"` plus `AND assignee = currentUser()` when `pick_assigned_to_me` is true, `ORDER BY updated DESC`; Plane: the same filters). Without an `intake` status, use the project's first To Do status.
