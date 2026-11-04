@@ -1,7 +1,7 @@
 ---
 name: use-codegraph
 description: agent-os pipeline wrapper for the CodeGraph CLI, written by /agent-os:extensions. Only applies when it is listed in an agent-os agent's Extensions block; it tells the agent to query the local code graph before searching or reading code.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Use CodeGraph
@@ -15,9 +15,11 @@ This needs the Bash tool. If you do not have it, report this skill as `not appli
 1. Your code directory is your `working_directory` if you were given one, otherwise the workspace root.
 2. If that directory contains `.codegraph/`:
    - Run `codegraph sync` once at the start, from that directory.
-   - Before searching or reading code, ask the graph first: `codegraph explore "<what you need to understand>"`. It returns the relevant symbols' source, their call paths and their impact in one call.
-   - Read only the files its answer points to, or the files you are about to edit.
+   - Before searching or reading code, ask the graph first: `codegraph explore "<what you need to understand>"`. It returns the relevant symbols' source, their call paths and their impact in one call. This applies also when the plan, the ADRs or `files_modified` already name the files: knowing which files to touch is not knowing what is in them.
+   - Read only the files its answer points to, or the files you are about to edit. For a file you edit, read only the part you change and its surroundings, with the Read tool's `offset` and `limit` (or Grep with context), not the whole file, unless it is short (about 150 lines or fewer) or you change most of it.
+   - Never read code through Bash (`cat`, `sed -n`, `head`, `tail`, `less`): use `codegraph`, Read or Grep. Do not read the same file again unless it changed since you read it.
    - `codegraph impact <symbol>` and `codegraph callers <symbol>` are useful before changing a symbol.
+   - In your `EXTENSIONS APPLIED` line, state how many `codegraph explore` calls you made. Zero needs a reason other than already knowing the files.
 3. If there is no `.codegraph/`, or the `codegraph` command is missing or fails: continue with Read, Grep and Glob as usual, and say so in your `EXTENSIONS APPLIED` line.
 
 ## Limits

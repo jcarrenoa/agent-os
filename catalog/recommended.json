@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.1.0",
+  "catalog_version": "1.2.0",
   "entries": [
     {
       "id": "antislop",
@@ -132,7 +132,7 @@
       "wrapper": {
         "skill": "use-codegraph",
         "template": "catalog/templates/use-codegraph.md",
-        "version": "1.0.0"
+        "version": "1.1.0"
       },
       "assignments": {
         "planner": ["use-codegraph"],
