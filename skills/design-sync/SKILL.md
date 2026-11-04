@@ -1,7 +1,7 @@
 ---
 name: design-sync
 description: This skill should be used whenever agent-os needs to read from or write to the project's design source (Figma) configured in config.design_source — finding the Figma links of a task ("/agent-os:start VR-123" whose issue has a Figma link, "/agent-os:design-source link <url>"), taking the design snapshot the agents read, refreshing it, commenting design findings on Figma nodes, or writing Code Connect mappings. Only the orchestrating command uses it, never a subagent.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Design Sync Protocol
@@ -42,6 +42,7 @@ At the first design-source operation of a command, list the available tools whos
 
 | Function | Figma MCP server (seen as) | Needed by |
 |---|---|---|
+| Session | `create_session` | Every operation on a file, best effort |
 | Metadata (node tree: pages, frames, names, sizes) | `get_metadata` | Snapshot |
 | Design context (layout, styles, texts, reference code) | `get_design_context` (older: `get_code`) | Snapshot |
 | Variables (tokens: colors, spacing, typography) | `get_variable_defs` | Snapshot |
@@ -52,6 +53,10 @@ At the first design-source operation of a command, list the available tools whos
 | Write Code Connect mapping | `add_code_connect_map` or `send_code_connect_mappings` | Code Connect |
 
 Best-effort functions record no sync error when they have no tool or fail. The comment and Code Connect tools may not exist on every server or plan: without one, the permission has no effect, and the user is told once.
+
+**Session.** When the server exposes the Session function, call it once per command run and file, before the first other call on that file, with the file key and a one-line description that states the purpose and that it is read-only (for example "Read-only: snapshot of TASK-002 frames"; for a gated write, name the write instead). Pass the returned session ID to every later call on that file whose schema accepts it. Without the function, or if it fails, call the tools without a session.
+
+**Large results.** A result too large for the context is saved to a file by Claude Code, and the call returns that file's path instead of the data. It is not a failure and records no sync error: read that file in parts (or search it for the node IDs and names you need) instead of calling again. To avoid it, ask for the smallest node that answers the question: the frame or section named by the link before its page, and a page before the whole file.
 
 ## Links
 
@@ -67,7 +72,7 @@ A Figma link is a URL on `figma.com` of the form `/(design|file|proto)/<fileKey>
 
 Takes the design into files the agents can read. Runs right after Links, and again with `/agent-os:design-source refresh` or `link`.
 
-1. **Resolve the frames.** For each link, read its metadata. A frame or component is taken as is. A page, section or file: list its top-level frames.
+1. **Resolve the frames.** For each link, read its metadata. A frame or component is taken as is. A page, section or file: list its top-level frames. A page's metadata is often too large: follow **Large results** in Tool Discovery, and list only the top-level frames (name, `node_id`, size) from it.
 2. **Limit.** At most `design_source.max_frames` frames per task (default 10). With more, or with a link that names no node, AskUserQuestion with `multiSelect: true` listing the 4 largest or most recently named frames; the user can type others. Unattended mode: take the first `max_frames` in canvas order and say so in one line.
 3. **Read each frame**: design context, variables, the Code Connect map (best effort) and the screenshot (best effort).
 4. **Write the files** under `.agent-os/designs/TASK-NNN/`:
