@@ -1,5 +1,5 @@
 ---
-description: Issue tracker integration (Jira or Plane over MCP). Without arguments shows the configuration and the active task's link. Subcommands - setup (connect or change the tracker), permissions (choose what agent-os may do: move, create, comment), map (re-analyse the board columns and confirm the route of action), pick (choose an issue to start a task from), sync (retry failed operations and pending writes, also of finished tasks), owner (the name that closes the commits comments), off (disconnect).
+description: Issue tracker integration (Jira or Plane over MCP). Without arguments shows the configuration and the active task's link. Subcommands - setup (connect or change the tracker), permissions (choose what agent-os may do - move, create, comment), map (re-analyse the board columns and confirm the route of action), pick (choose an issue to start a task from), sync (retry failed operations and pending writes, also of finished tasks), owner (the name that closes the commits comments), off (disconnect).
 argument-hint: "[setup | permissions | map | pick | sync [TASK-NNN] | owner [name] | off]"
 ---
 

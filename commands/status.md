@@ -38,6 +38,7 @@ Stack:    [frontend] + [backend]
 Approver: [off | advisory | autonomous (max_revisions N) | unattended (max_revisions N)] — gates: [requirements, planning, design | —]
 Requirements format: [REQ | user stories]
 Tracker:  [none | Jira VR (MCP, mode both, permisos read+move+create+comment) | Plane REACH (MCP, mode pull, permisos read+comment)]; the effective permissions (`tracker-sync` → Permissions)
+Design:   [none | Figma (MCP `server`, permisos read+comment+code_connect)] · active task: [N frames · sin diseño]
 Git:      [defaults | branch_pattern from base_branch · commit_pattern; "per repo" when config.git.repos is set] · commit after QA: [gate | auto | off]
 
 Pipeline State

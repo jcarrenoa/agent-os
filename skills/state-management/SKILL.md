@@ -1,7 +1,7 @@
 ---
 name: state-management
 description: This skill should be used whenever agent-os needs to read or write state files in .agent-os/. Use it before reading config.json, state.json, or any task/decision file, and before writing any of them. Never modify state files without following this protocol.
-version: 1.1.0
+version: 1.1.1
 ---
 
 # State Management Protocol
@@ -18,10 +18,15 @@ All agent-os state lives in `.agent-os/` at the root of the target project.
 │   ├── TASK-001.json
 │   ├── TASK-002.json
 │   └── ...
-└── decisions/
-    ├── DEC-001.json
-    ├── DEC-002.json
-    └── ...
+├── decisions/
+│   ├── DEC-001.json
+│   ├── DEC-002.json
+│   └── ...
+└── designs/             ← Only with config.design_source (design-sync skill)
+    └── TASK-001/
+        ├── brief.md     ← What the agents read
+        ├── frames/      ← Raw design context per frame
+        └── screens/     ← Screenshots, when the server returns a downloadable image
 ```
 
 ## Reading State
