@@ -239,5 +239,5 @@ A **block** is different from an approval gate:
 - A block means the work cannot proceed because something external is missing (e.g., missing credentials, unclear requirements that need research, external dependency not available), or, in unattended mode, a blocker is left after `max_revisions`.
 - An approval gate means work is done and the human must review before proceeding.
 
-Set `stage_status: "blocked"` and fill `state.json.blocker` when blocked. With `config.tracker` and `access` not `read`, fire the `blocked` route event (`tracker-sync` skill).
+Set `stage_status: "blocked"` and fill `state.json.blocker` when blocked. With `config.tracker` and the `move` permission (`tracker-sync` → Permissions), fire the `blocked` route event (`tracker-sync` skill).
 Set `stage_status: "awaiting_approval"` and fill `pending_approval` for gates.

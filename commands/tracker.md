@@ -1,6 +1,6 @@
 ---
-description: Issue tracker integration (Jira or Plane over MCP). Without arguments shows the configuration and the active task's link. Subcommands - setup (connect or change the tracker), map (re-analyse the board columns and confirm the route of action), pick (choose an issue to start a task from), sync (retry failed operations and pending writes, also of finished tasks), owner (the name that closes the commits comments), off (disconnect).
-argument-hint: "[setup | map | pick | sync [TASK-NNN] | owner [name] | off]"
+description: Issue tracker integration (Jira or Plane over MCP). Without arguments shows the configuration and the active task's link. Subcommands - setup (connect or change the tracker), permissions (choose what agent-os may do: move, create, comment), map (re-analyse the board columns and confirm the route of action), pick (choose an issue to start a task from), sync (retry failed operations and pending writes, also of finished tasks), owner (the name that closes the commits comments), off (disconnect).
+argument-hint: "[setup | permissions | map | pick | sync [TASK-NNN] | owner [name] | off]"
 ---
 
 # Agent OS — Tracker
@@ -19,7 +19,7 @@ Write everything in `preferences.output_language`. Before any tracker operation,
 ## 🔗 Tracker — [Jira | Plane] por MCP (`[mcp.server]`)
 | | |
 |---|---|
-| Acceso | [Solo lectura · Lectura y escritura, also when `access` is missing] |
+| Permisos | [the effective permissions (`tracker-sync` → Permissions): Leer · Comentar commits · Mover issues · Crear issues] |
 | Proyecto | [jira.project_key + site_url · or plane workspace_slug / project_identifier] |
 | Modo | [pull · create · both] |
 | Tarea activa | [TASK-NNN → KEY (url), estado · or "sin issue"] |
@@ -39,7 +39,7 @@ Write everything in `preferences.output_language`. Before any tracker operation,
 | blocked | etapa bloqueada | ... |
 ```
 
-With `access: "read"`, omit the "Ruta de acción" section and every row about writes (errors, pending writes, finished tasks to retry, owner).
+Omit the "Ruta de acción" section without the `move` permission, and the "Encargado" row without `comment`. With only `read`, omit also the rows about errors, pending writes and finished tasks to retry.
 
 ## setup
 
@@ -47,7 +47,11 @@ Run **Step 2.2: Tracker** of `/agent-os:setup` (same questions and checks), then
 
 ## map
 
-Run **Board Analysis** of the `tracker-sync` skill and write the new `tracker.status_route`. Nothing else changes. With `access: "read"`, follow **Read-Only Access** in the skill instead.
+Run **Board Analysis** of the `tracker-sync` skill and write the new `tracker.status_route`. Nothing else changes. Without the `move` permission there is no route: say so in one line and suggest `/agent-os:tracker permissions`.
+
+## permissions
+
+Change only what agent-os may do in the tracker. Ask the **Permissions** question of `/agent-os:setup` Step 2.2 (step 3), marking the current ones with "(actual)". Then ask only what a newly granted permission needs and the config lacks: `move` without `status_route` → **Board Analysis**; `create` → the types (Jira) and the mode question; `comment` without a configured owner name → the owner question. A removed `create` sets `mode: "pull"`; a removed `move` keeps `status_route` (it is ignored until `move` is granted again). Read `config.json` first, write `tracker.permissions` (removing a legacy `access`) and the fields those answers changed, set `updated_at`, and show the new permissions in one line.
 
 ## pick
 
@@ -55,7 +59,7 @@ Only when `tracker.mode` is `pull` or `both` (otherwise say so and stop). If a t
 
 ## sync
 
-Works with or without an active task. Read the task files in `.agent-os/tasks/` and run **Retry** of the `tracker-sync` skill for the tasks it covers (`sync TASK-NNN`: only that task). Show the result, or say in one line that nothing is pending. With `access: "read"`, **Read-Only Access** in the skill limits what runs.
+Works with or without an active task. Read the task files in `.agent-os/tasks/` and run **Retry** of the `tracker-sync` skill for the tasks it covers (`sync TASK-NNN`: only that task). Show the result, or say in one line that nothing is pending. The effective permissions (**Permissions** in the skill) limit what runs.
 
 ## owner
 
