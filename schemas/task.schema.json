@@ -263,6 +263,60 @@
         }
       }
     },
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["links"],
+      "description": "Design-source data of this task (design-sync skill). Missing: the task has no design.",
+      "properties": {
+        "links": {
+          "type": "array",
+          "description": "Figma links of the task, from the argument, the description or the user.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["url", "file_key"],
+            "description": "One parsed link.",
+            "properties": {
+              "url": { "type": "string", "description": "The link as given." },
+              "file_key": { "type": "string", "description": "File key (the branch key for a branch URL)." },
+              "node_id": { "type": "string", "pattern": "^[0-9]+:[0-9]+$", "description": "Node ID in API form (1:23). Missing: the link points to the whole file." }
+            }
+          }
+        },
+        "snapshot_at": { "type": "string", "format": "date-time", "description": "When the snapshot was last taken." },
+        "brief": { "type": "string", "description": "Path of brief.md, relative to the workspace root (.agent-os/designs/TASK-NNN/brief.md). Passed to the agents by skill-resolution Tier 6." },
+        "frames": {
+          "type": "array",
+          "description": "Frames in the snapshot.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["node_id", "name", "file_key", "raw"],
+            "description": "One frame.",
+            "properties": {
+              "node_id": { "type": "string", "pattern": "^[0-9]+:[0-9]+$", "description": "Node ID in API form." },
+              "name": { "type": "string", "description": "Frame name as in Figma." },
+              "file_key": { "type": "string", "description": "File key." },
+              "url": { "type": "string", "description": "Link to the frame." },
+              "raw": { "type": "string", "description": "Path of frames/<node>.md, relative to the workspace root." },
+              "screenshot": { "type": ["string", "null"], "description": "Path of screens/<node>.png, relative to the workspace root; null when no image file was written." }
+            }
+          }
+        },
+        "changed_after": { "type": "string", "enum": ["planning", "design", "development", "qa"], "description": "Set when the snapshot was refreshed after Discovery: the stage the task was in. Approved requirements or architecture may not match the new design." },
+        "sync_log": {
+          "type": "array",
+          "description": "Every design-source operation.",
+          "items": { "$ref": "#/definitions/designSyncEntry" }
+        },
+        "sync_errors": {
+          "type": "array",
+          "description": "Failed design-source operations, retried by /agent-os:design-source refresh (snapshot) or its comment / code-connect subcommands.",
+          "items": { "$ref": "#/definitions/designSyncEntry" }
+        }
+      }
+    },
     "commits": {
       "type": "array",
       "description": "Local commits made for this task, written by /agent-os:commit (or another post-QA command). Used for the tracker comment; external.sync_log records which of them were already commented.",
@@ -429,6 +483,19 @@
           "description": "Only for operation 'comment': the hashes of task.commits in that comment, as written there. Tells which commits are still pending for this target.",
           "items": { "type": "string", "pattern": "^[0-9a-f]{7,40}$", "description": "Commit hash." }
         }
+      }
+    },
+    "designSyncEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "event", "operation", "target", "result"],
+      "description": "One design-source operation.",
+      "properties": {
+        "at": { "type": "string", "format": "date-time", "description": "When it ran." },
+        "event": { "type": "string", "enum": ["snapshot", "refresh", "comment_findings", "code_connect"], "description": "What triggered it." },
+        "operation": { "type": "string", "enum": ["read", "comment", "code_connect"], "description": "What was done." },
+        "target": { "type": "string", "description": "Node ID, file key, or the QA issue ID for a comment." },
+        "result": { "type": "string", "description": "e.g. 'N frames', 'posted', 'declined by user', or the error (never a token)." }
       }
     },
     "finding": {

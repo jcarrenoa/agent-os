@@ -86,6 +86,7 @@ Clone this repository and start Claude Code with `claude --plugin-dir <path-to-a
 | `/agent-os:extensions [status\|install\|uninstall\|update]` | Check or install the recommended extensions from the catalog, after approving the exact commands. |
 | `/agent-os:commit [KEY]` | One local commit per repo for the task, on a feature branch named by the project's git conventions. Never pushes. See [Git conventions](#git-conventions). |
 | `/agent-os:tracker [setup\|permissions\|map\|pick\|sync\|owner\|off]` | Jira / Plane integration over MCP: connect it, choose its permissions, re-map the board columns, pick an issue, retry failed syncs, set the name that closes the commits comments. See [Tracker](#tracker). |
+| `/agent-os:design-source [setup\|permissions\|link\|refresh\|comment\|code-connect\|off]` | Figma integration over MCP: connect it, choose its permissions, add a task's Figma links, refresh its snapshot, comment QA design findings, map components with Code Connect. See [Design source](#design-source-figma). |
 
 ---
 
@@ -632,6 +633,47 @@ The `done_pipeline` move runs last. A declined or failed commits comment does no
 ```
 
 For Plane, replace `jira` with `"plane": { "workspace_slug", "project_id", "project_identifier", "base_url" }` and give each route entry its state `id`.
+
+## Design source (Figma)
+
+Optional integration with **Figma**, so the agents work from the task's design. Configured in `/agent-os:setup` (Step 2.4, skipped when the focus is backend) or later with `/agent-os:design-source setup`. Without the `design_source` key in `config.json`, nothing changes.
+
+Subagents cannot reach MCP tools, so only the orchestrating command talks to Figma (the `design-sync` skill) and writes what it reads to files the agents can open. Register Figma's MCP server in Claude Code and sign in with `/mcp`; agent-os never stores or sees a token.
+
+### Permissions
+
+| Permission | What it allows | Approval |
+|---|---|---|
+| `read` | Read frames, design context, variables, screenshots and comments. Always on | — |
+| `comment` | Post QA design findings as comments on their Figma nodes | Always asked |
+| `code_connect` | Map Figma components to the code components the task created (Code Connect; needs a Figma plan that has it) | Always asked |
+
+Agent-os never creates, edits or deletes anything in Figma. To change the permissions: `/agent-os:design-source permissions`.
+
+### How the design reaches the agents
+
+1. **Links.** At the start of Discovery, agent-os collects the Figma links of the task from the argument and the description (for a pulled issue, its description). With none, it asks; in unattended mode it continues without design. `/agent-os:design-source link <url>` adds links later.
+2. **Snapshot.** For each linked frame (a page or file asks which frames; at most `max_frames`, default 10), it reads the design context, variables, Code Connect mappings and screenshot, and writes `.agent-os/designs/TASK-NNN/`:
+   - `brief.md`: frames, layout, components, every text verbatim, tokens, and the states present and missing (loading, empty, error, disabled), plus how each agent must use it;
+   - `frames/<node>.md`: the raw design context, unchanged;
+   - `screens/<node>.png`: only when the server returns a downloadable image. An inline image cannot be saved and is described in the brief instead.
+3. **Agents.** `brief.md` is added to the Extensions block of the requirements-analyst, approver, architect, frontend-developer and qa-engineer (never the planner or backend-developer), so it is read and confirmed like any doc. The reference code in `frames/` is a hint: the frontend-developer implements with the project's stack and existing components.
+4. **QA.** The qa-engineer records each difference from the design, and each state the design does not cover, as an issue with location `design:<node_id>`.
+5. **After an approved QA**, with their permissions: the comments on Figma, then the Code Connect mappings, each after its gate, in every mode.
+
+`/agent-os:design-source refresh` takes the snapshot again. After Discovery it warns that the approved requirements or architecture may no longer match, and suggests `/agent-os:rollback`; nothing is rolled back automatically. A Figma failure is recorded in `task.design.sync_errors` and never blocks the pipeline.
+
+### Configuration example
+
+```json
+"design_source": {
+  "provider": "figma",
+  "connection": "mcp",
+  "mcp": { "server": "figma" },
+  "permissions": ["read", "comment"],
+  "max_frames": 10
+}
+```
 
 ---
 

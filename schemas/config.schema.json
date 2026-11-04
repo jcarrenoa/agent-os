@@ -364,6 +364,54 @@
         }
       ]
     },
+    "design_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional design source (Figma), used only by the orchestrator through the design-sync skill. Agents read the snapshot it writes to .agent-os/designs/. Missing: no design source, nothing changes. Never contains credentials.",
+      "required": ["provider", "connection", "mcp", "permissions"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["figma"],
+          "description": "Which design tool."
+        },
+        "connection": {
+          "type": "string",
+          "enum": ["mcp"],
+          "description": "How agent-os talks to the design tool. Only mcp (the MCP server registered in Claude Code) is supported."
+        },
+        "mcp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["server"],
+          "description": "The MCP server that exposes the design tools.",
+          "properties": {
+            "server": {
+              "type": "string",
+              "description": "Name the MCP server is registered with in Claude Code (its tools are named mcp__<server>__<tool>). Tools are discovered by this prefix at run time."
+            }
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "contains": { "const": "read" },
+          "description": "What agent-os may do in the design tool, chosen one by one (design-sync skill, Permissions). read = read frames, design context, variables, screenshots and comments (always granted). comment = post design findings as comments on their nodes, after a gate. code_connect = write Code Connect mappings, after a gate. Not a credential: the MCP server holds the authentication.",
+          "items": {
+            "type": "string",
+            "enum": ["read", "comment", "code_connect"],
+            "description": "One permission."
+          }
+        },
+        "max_frames": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 10,
+          "description": "Maximum frames taken into one task's snapshot. With more, the user chooses."
+        }
+      }
+    },
     "git": {
       "type": "object",
       "additionalProperties": false,
