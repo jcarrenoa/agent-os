@@ -52,9 +52,11 @@ No critical or major issues:
 5b. **Tracker** (only with `config.tracker`). First read `${CLAUDE_PLUGIN_ROOT}/skills/tracker-sync/SKILL.md`, resolving the path as in Run Stage 5 if it is not absolute. Then, exactly in this order, each finished before the next:
    1. Comment Commits: its gate and its comments. In unattended approver mode it only queues the write.
    2. Unattended approver mode only: the Pending Writes gate and its writes.
-   3. The `done_pipeline` route event (only with the `move` permission), never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
+   3. Design source only: step 5c, before `done_pipeline`.
+   4. The `done_pipeline` route event (only with the `move` permission), never before steps 1 to 3 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
 
    Add the Tracker table to the completion output.
+5c. **Design source** (only with `config.design_source` and `task.design`). Read `${CLAUDE_PLUGIN_ROOT}/skills/design-sync/SKILL.md`, resolving the path the same way. Run Comment Findings, then Code Connect, each with its permission and its gate, in every mode, unattended included. Their failures never hold `done_pipeline`. With a tracker, this runs as step 3 of 5b; without one, right after step 5. Add the Diseño table to the completion output.
 6. Set `state.json`:
    ```json
    {

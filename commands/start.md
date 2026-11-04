@@ -32,6 +32,14 @@ Only when `config.tracker` exists. Before any tracker operation, read `${CLAUDE_
 - **Comments**: Comment Commits after the post-QA commands (in unattended mode, queued for the same end-of-run gate).
 - Each stage summary lists that stage's tracker writes in one line; the completion report has the Tracker table.
 
+## Design Source
+
+Only when `config.design_source` exists. Before any design-source operation, read `${CLAUDE_PLUGIN_ROOT}/skills/design-sync/SKILL.md` and follow it, resolving the path as for the tracker. Every operation runs here in the main session and never blocks the pipeline.
+
+- **Links and Snapshot**: at the start of Stage 1, after the tracker `start` event and before resolving the extensions (`design-sync` → Links, then Snapshot). Once `task.design.brief` exists, every extension resolution of this task adds it (`skill-resolution` → Tier 6).
+- **After an approved QA**: Comment Findings, then Code Connect, each with its permission and its gate, after the tracker writes and before `done_pipeline`. They are asked in every mode, unattended included.
+- The completion report has the Diseño table.
+
 ## Unattended Mode
 
 When `config.approver.enabled` and `config.approver.mode = "unattended"`, tell the user once, right after Step 1 creates the task (after the git baseline warning, if any): "Modo unattended: el approver decide las preguntas, los gates [list config.approver.gates] y los reintentos de QA. Solo te preguntaré por los commands post-QA marcados [gate]." Then run every stage without stopping, except when a stage becomes `blocked` (Exhausted Revisions in the `approval-gates` skill): show the blocker and the Approver Decisions Report, and stop.
@@ -64,9 +72,11 @@ Tell the user: "Created TASK-NNN: [title]. Starting Stage 1: Discovery."
 
 Read `${CLAUDE_PLUGIN_ROOT}/workflows/01-discovery.md` and follow it completely. If that path is not absolute (it still starts with `${`), resolve the plugin root with the **Plugin Root** section of the `skill-resolution` skill first.
 
-Follow the `skill-resolution` skill for stage `discovery`, agent `requirements-analyst`. Show any warnings.
-
 Tracker: fire the `start` route event.
+
+Design source: Links and Snapshot (Design Source section above).
+
+Follow the `skill-resolution` skill for stage `discovery`, agent `requirements-analyst`. Show any warnings.
 
 Spawn a `requirements-analyst` agent with:
 - The task description (verbatim)
@@ -237,7 +247,9 @@ After the agent returns:
   - Tracker: if you have not read the `tracker-sync` skill in this run, read it first (path in the Tracker section above). Then, exactly in this order, each finished before the next:
     1. Comment Commits: its gate and its comments. In unattended mode it only queues the write.
     2. Unattended mode only: the Pending Writes gate and its writes.
-    3. The `done_pipeline` route event (only with the `move` permission), never before steps 1 and 2 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
+    3. Design source only: Comment Findings, then Code Connect (`design-sync` skill), each with its permission and its gate. Their failures never hold `done_pipeline`.
+    4. The `done_pipeline` route event (only with the `move` permission), never before steps 1 to 3 are finished. It runs even if a comment was declined or failed. Only a failed post-QA command holds it (Held `done_pipeline`).
+  - Without a tracker but with a design source: run step 3 alone.
   - Set `state.json: current_stage = "idle", active_task_id = null`
   - Show completion summary
 
@@ -264,6 +276,7 @@ Files modified: [N files]
 Tests: [N passed]
 Decisions recorded: [DEC-NNN, ...]
 Tracker: [KEY → status · N errores (/agent-os:tracker sync) · omit without tracker]
+Diseño: [N frames · comentarios publicados N · Code Connect N · N errores · omit when the task has no design]
 Post-QA failures: [⚠ command — reason, per entry of task.post_qa_failures · only when `held_done_pipeline` is set: issue not moved: /agent-os:tracker sync · omit when empty]
 
 Run `/agent-os:status` to view the project state.

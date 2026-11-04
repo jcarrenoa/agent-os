@@ -235,8 +235,8 @@ Connects Jira or Plane through an MCP server. What agent-os may do in the tracke
    - "Jira" (description: "Jira Cloud por el servidor MCP de Atlassian.")
    - "Plane" (description: "Plane por su servidor MCP oficial.")
 
-   "No" → no `tracker` key (with `--reconfigure`, remove it if it existed, after confirming). Continue to Step 2.5.
-2. **MCP server.** List the MCP tools available in this session and find the servers whose tools match the provider (`tracker-sync` → Tool Discovery). One match: use it. Several: ask which one. None: show the `claude mcp add` command for the provider from the README (Tracker section), tell the user to add it, authenticate with `/mcp`, and run `/agent-os:tracker setup` later. Do not write a `tracker` key; continue to Step 2.5.
+   "No" → no `tracker` key (with `--reconfigure`, remove it if it existed, after confirming). Continue to Step 2.3.
+2. **MCP server.** List the MCP tools available in this session and find the servers whose tools match the provider (`tracker-sync` → Tool Discovery). One match: use it. Several: ask which one. None: show the `claude mcp add` command for the provider from the README (Tracker section), tell the user to add it, authenticate with `/mcp`, and run `/agent-os:tracker setup` later. Do not write a `tracker` key; continue to Step 2.3.
 3. **Permissions.** AskUserQuestion with `multiSelect: true`, in `output_language`, header "Permisos", "Leer issues siempre está activo. ¿Qué más permites a agent-os en el tracker?". With `--reconfigure`, mark the permissions currently granted (effective permissions, `tracker-sync` → Permissions) with "(actual)".
    - "Comentar commits (Recomendado)" (description: "Comenta en el issue los commits de la tarea, siempre con tu aprobación.")
    - "Mover issues" (description: "Mueve el issue por la ruta de columnas que confirmes, sin preguntar cada vez.")
@@ -294,6 +294,25 @@ Proposes how `/agent-os:commit` names branches and writes commit subjects. Nothi
 4. Keep for Step 4:
    - "Detectado" or the edited table → `config.git` with the values the repos share; the fields that differ go to `config.git.repos.<repo path>`. Empty fields are not written. "Sin convención" → no `git` key.
    - "Sí, con aprobación" → `"agent-os:commit"` in `extensions.stages.qa.commands`; "Sí, sin preguntar" → `{ "name": "agent-os:commit", "auto": true }`; "No" → neither. Never add it twice; with `--reconfigure`, replace the existing entry.
+
+## Step 2.4: Design Source (optional)
+
+Connects Figma through an MCP server, so the agents work from the task's design (`design-sync` skill). Reading is always on; commenting and Code Connect always ask first. Skip this step when `config.focus` is `backend`.
+
+1. AskUserQuestion, in `output_language`, header "Diseño", "¿Conectar Figma para que los agentes sigan el diseño?". With `--reconfigure`, mark the current value with "(actual)".
+   - "No (Recomendado)" (description: "Sin integración; nada cambia.")
+   - "Figma" (description: "Figma por su servidor MCP. Lee los frames de cada tarea y se los pasa a los agentes.")
+
+   "No" → no `design_source` key (with `--reconfigure`, remove it if it existed, after confirming). Continue to Step 2.5.
+2. **MCP server.** List the MCP tools available in this session and find the servers whose tools match Figma (`design-sync` → Tool Discovery). One match: use it. Several: ask which one. None (or only an authentication tool): tell the user to add or authenticate it with `/mcp` and run `/agent-os:design-source setup` later. Do not write a `design_source` key; continue to Step 2.5. When the Current user function exists, call it to check the connection; a failure is reported, not blocking.
+3. **Permissions.** AskUserQuestion with `multiSelect: true`, in `output_language`, header "Permisos", "Leer el diseño siempre está activo. ¿Qué más permites a agent-os en Figma?". With `--reconfigure`, mark the permissions currently granted with "(actual)".
+   - "Comentar hallazgos" (description: "Comenta en el frame de Figma las diferencias y estados sin diseñar que encuentre QA, siempre con tu aprobación.")
+   - "Code Connect" (description: "Mapea componentes de Figma a los componentes de código creados, siempre con tu aprobación. Requiere un plan de Figma con Code Connect.")
+
+   Write `permissions: ["read", …]` with the chosen ones (`comment`, `code_connect`); none chosen → `["read"]`.
+4. Keep the result for Step 4: `"design_source": { provider: "figma", connection: "mcp", mcp: { server }, permissions }`. No credentials: the MCP server handles authentication.
+
+If any MCP call fails, say so, write no `design_source` key, suggest `/agent-os:design-source setup`, and continue: the design source never blocks setup.
 
 ## Step 2.5: Configure Extensions (optional)
 
@@ -379,6 +398,7 @@ After confirmation, create these files and directories:
   },
   "approver": "[only if Step 2.1 enabled it: { enabled, mode, gates, max_revisions }]",
   "tracker": "[only if Step 2.2 connected one: { provider, permissions, connection, mcp, mode, jira | plane, pick_assigned_to_me, status_route }]",
+  "design_source": "[only if Step 2.4 connected one: { provider, connection, mcp, permissions }]",
   "git": "[only if Step 2.3 kept conventions: { base_branch, branch_pattern, commit_pattern, commit_pattern_no_key, commit_types, commit_language, protected_branches, epic_branches?, repos? }]",
   "extensions": "[from Step 2.5, plus agent-os:commit in stages.qa.commands if Step 2.3 enabled it]"
 }
@@ -492,6 +512,14 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 
 (Omit every row but "Gestor" when no tracker is connected. Omit "Ruta" without `move` and "Encargado" without `comment`.)
 
+### 🎨 Diseño
+| | |
+|---|---|
+| Fuente | [No conectada · or Figma por MCP (`server`)] |
+| Permisos | [Leer · Comentar hallazgos (con tu aprobación) · Code Connect (con tu aprobación): only the granted ones] |
+
+(Omit "Permisos" when no design source is connected. Omit the whole section when `focus` is `backend`.)
+
 ### 🌿 Git
 | | |
 |---|---|
@@ -512,4 +540,4 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | `/agent-os:commit` | Commit local por repo con las convenciones de git (nunca hace push) |
 ```
 
-To change these options later: `/agent-os:setup --reconfigure`, or edit `approver` and `preferences.requirements_format` in `.agent-os/config.json` (README → Approver). The tracker: `/agent-os:tracker setup | map | owner | off`.
+To change these options later: `/agent-os:setup --reconfigure`, or edit `approver` and `preferences.requirements_format` in `.agent-os/config.json` (README → Approver). The tracker: `/agent-os:tracker setup | map | owner | off`. The design source: `/agent-os:design-source setup | permissions | off`.

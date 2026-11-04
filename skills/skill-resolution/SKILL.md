@@ -1,12 +1,12 @@
 ---
 name: skill-resolution
 description: Resolves which skills, docs, agents, and commands are active for a given pipeline stage, role, and agent, resolves the agent-os plugin root, defines what goes in each agent prompt, and verifies that agents applied their extensions. Use this skill before spawning any agent to determine what extensions are configured, and before reading any file bundled with the plugin (workflows, schemas, plugin skills). Called by every stage command (discover, plan, design, develop, qa) in the agent-os pipeline.
-version: 3.5.0
+version: 3.6.0
 ---
 
 # Skill Resolution Protocol
 
-Determines the complete, ordered set of skills and docs an agent receives. Combines three configuration levels (plugin defaults, user defaults, project config) and five tiers ordered from generic to specific (plugin → context → stage → role → agent). Later entries override earlier ones on conflict.
+Determines the complete, ordered set of skills and docs an agent receives. Combines three configuration levels (plugin defaults, user defaults, project config) and six tiers ordered from generic to specific (plugin → context → stage → role → agent → task). Later entries override earlier ones on conflict.
 
 ## Plugin Root
 
@@ -41,7 +41,7 @@ If neither 1 nor 2 has relevant data: proceed with plugin defaults only.
 
 ## Step 2: Build the Merged Effective Config
 
-Build the list in five tiers, from least to most specific. Within each tier, user-level entries come first, then project-level entries.
+Build the list in six tiers, from least to most specific. Within each tier, user-level entries come first, then project-level entries.
 
 ### Tier 1: `plugin` (built-in defaults)
 
@@ -70,6 +70,13 @@ docs   += user.stages.<stage>.<role>.docs,   project.stages.<stage>.<role>.docs
 skills += user.agents.<agent>.skills, project.agents.<agent>.skills
 docs   += user.agents.<agent>.docs,   project.agents.<agent>.docs
 ```
+
+### Tier 6: `task` (the active task's design brief)
+Not configured by the user: it comes from the task. Apply only when the active task has `task.design.brief` (`design-sync` skill → Snapshot) and the agent is `requirements-analyst`, `approver`, `architect`, `frontend-developer` or `qa-engineer`; never `planner` or `backend-developer`.
+```
+docs += <workspace root>/<task.design.brief>     [level: task]
+```
+For the architect it goes in the `### Shared` section. If the file does not exist: warning `⚠ design brief '<path>' not found — skipped`.
 
 **Duplicates**: if the same skill name or doc path appears more than once, keep only its **last** occurrence (the most specific tier and level). The final list is ordered generic → specific.
 
@@ -193,7 +200,7 @@ Skills (application order):
   [/absolute/path/to/SKILL.md]   [tier: stage|role|agent]  [level: user|project]
 
 Docs (read order):
-  [/absolute/path/to/file.md]    [tier: context|stage|role|agent]  [level: user|project]
+  [/absolute/path/to/file.md]    [tier: context|stage|role|agent|task]  [level: user|project|task]
 
 [QA only:]
 Extra agents:     [name ...]
@@ -213,7 +220,7 @@ Order:  generic → specific. Later entries override earlier ones on conflict; t
 
 ### Shared
 Skills: [...]  (tiers: stage, agent)
-Docs:   [...]  (tiers: context, stage, agent)
+Docs:   [...]  (tiers: context, stage, agent, task)
 
 ### Role: backend
 Mode:   [extend | replace]

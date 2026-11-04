@@ -28,6 +28,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/workflows/01-discovery.md` and follow it completely.
 Set `stages.discovery.status = "in_progress"` in the task file before spawning the agent.
 Tracker (only with `config.tracker` and the `move` permission, `tracker-sync` → Permissions): fire the `start` route event (`tracker-sync` skill).
 Set `state.json.stage_status = "in_progress"`.
+Design source (only with `config.design_source`): read `${CLAUDE_PLUGIN_ROOT}/skills/design-sync/SKILL.md` (resolving the path as above) and run **Links** and then **Snapshot**, before resolving the extensions, so the brief reaches the requirements-analyst.
 
 ### Resolve Extensions
 
