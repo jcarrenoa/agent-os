@@ -238,11 +238,21 @@
           "enum": ["jira", "plane"],
           "description": "Which tracker."
         },
+        "permissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "contains": { "const": "read" },
+          "description": "What agent-os may do in the tracker, chosen one by one (tracker-sync skill, Permissions). read = read issues, statuses and comments (always granted). move = move issues along status_route without asking (requires status_route). create = create the parent issue and sub-tasks, each after a gate (without it, mode must be pull). comment = comment the commits on the issue, after a gate. Takes precedence over access. Not a credential: the MCP server holds the authentication.",
+          "items": {
+            "type": "string",
+            "enum": ["read", "move", "create", "comment"],
+            "description": "One permission."
+          }
+        },
         "access": {
           "type": "string",
           "enum": ["read", "write"],
-          "default": "write",
-          "description": "What agent-os may do in the tracker. read = only reads issues and statuses: it creates, comments and moves nothing, mode must be pull and status_route is not needed. write = creates and comments, each after a gate, and moves issues along status_route. Missing means write, so existing configs do not change. Not a credential: the MCP server holds the authentication."
+          "description": "Legacy, replaced by permissions and ignored when permissions is present. read = permissions [read, comment]; write or missing = [read, move, create, comment]. Setup and /agent-os:tracker permissions remove it when they write permissions."
         },
         "connection": {
           "type": "string",
@@ -333,9 +343,24 @@
         { "if": { "properties": { "provider": { "const": "jira" } } }, "then": { "required": ["jira"] } },
         { "if": { "properties": { "provider": { "const": "plane" } } }, "then": { "required": ["plane"] } },
         {
-          "if": { "required": ["access"], "properties": { "access": { "const": "read" } } },
-          "then": { "properties": { "mode": { "const": "pull" } } },
-          "else": { "required": ["status_route"] }
+          "if": { "required": ["permissions"] },
+          "then": {
+            "allOf": [
+              {
+                "if": { "properties": { "permissions": { "contains": { "const": "move" } } } },
+                "then": { "required": ["status_route"] }
+              },
+              {
+                "if": { "properties": { "permissions": { "not": { "contains": { "const": "create" } } } } },
+                "then": { "properties": { "mode": { "const": "pull" } } }
+              }
+            ]
+          },
+          "else": {
+            "if": { "required": ["access"], "properties": { "access": { "const": "read" } } },
+            "then": { "properties": { "mode": { "const": "pull" } } },
+            "else": { "required": ["status_route"] }
+          }
         }
       ]
     },

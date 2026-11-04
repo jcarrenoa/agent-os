@@ -1,33 +1,47 @@
 ---
 name: tracker-sync
 description: This skill should be used whenever agent-os needs to read from or write to the project's issue tracker (Jira or Plane) configured in config.tracker — starting a task from an issue key or URL ("/agent-os:start VR-123"), picking an issue from the board, analysing the board's columns to build the route of action, moving the issue through the route as the pipeline advances, creating the parent issue and sub-tasks, or posting the commits comment. Only the orchestrating command uses it, never a subagent.
-version: 1.7.0
+version: 1.8.0
 ---
 
 # Tracker Sync Protocol
 
 Applies only when `.agent-os/config.json` has a `tracker` key. Without it, skip every step that mentions the tracker: nothing changes.
 
-## Read-Only Access
+## Permissions
 
-`tracker.access` says what agent-os may do in the tracker. Missing means `write`, so existing configs do not change. This section overrides every other one in this skill.
+`tracker.permissions` says what agent-os may do in the tracker. Each permission is chosen on its own in setup, and this section overrides every other one in this skill: a step that needs a permission the config does not grant is skipped.
 
-With `access: "read"`:
+| Permission | Allows | Gate |
+|---|---|---|
+| `read` | Read issues, statuses, types, transitions and comments (Pull, Pick, Board Analysis reads, Comment Commits Step 2). Always granted: nothing else works without it | — |
+| `move` | Route events and their transitions (Route Events), `held_done_pipeline` and its recovery, retrying failed transitions. Requires `status_route` | None: the route confirmed in setup is the consent. Logged |
+| `create` | `create_parent` and `create_subtasks` (Create). Required for `mode` `create` or `both`; without it `mode` is `pull` | Every time, in every mode |
+| `comment` | `comment_commits` (Comment Commits) and its retries | Every time, in every mode |
 
-- **Nothing is written, offered or queued**: no `create_parent`, `create_subtasks`, `comment_commits` or route transition, no gate, nothing added to `pending_writes`, and `held_done_pipeline` is not set. This covers every command that uses this skill, including `/agent-os:commit`, `/agent-os:approve` and `/agent-os:review`.
-- **Reads still work**: Pull and Pick read issues, and never move them.
-- **Say it once per run**, at the first write skipped, in one line in `output_language`: "Tracker en solo lectura: no se escribe nada en <Jira | Plane>."
-- **It is not an error**: nothing goes to `sync_errors`, there is no reminder of `/agent-os:tracker sync`, and the pipeline continues.
-- **`/agent-os:tracker sync`** retries only the reads of the active task. Writes queued before the change to `read` stay in the task file and are not offered.
-- **`/agent-os:tracker map`** does nothing, because there is no route: say so in one line.
-- **Setup** (`/agent-os:setup` Step 2.2): the only mode is `pull`, and the questions about the route, the types to create and the owner name are skipped.
+**Effective permissions**, used by every command:
+
+1. `tracker.permissions` when present, plus `read` if it is missing from the list.
+2. Otherwise the legacy `tracker.access`: `"read"` → `["read", "comment"]`; `"write"` or missing → `["read", "move", "create", "comment"]`, so older configs keep working.
+
+Commands refer to these as "the `<name>` permission".
+
+When a permission is missing:
+
+- **Skip, do not fail**: the step does nothing, nothing goes to `sync_errors`, and the pipeline continues. A write that is skipped is not queued in `pending_writes`. This covers every command that uses this skill, including `/agent-os:commit`, `/agent-os:approve` and `/agent-os:review`.
+- **Say it once per run and permission**, at the first step skipped, in one line in `output_language`: "Tracker sin permiso para <mover | crear | comentar> en <Jira | Plane>: se omite."
+- **Without `move`**: no route event moves anything, created issues and sub-tasks are not moved either, `held_done_pipeline` is not set, and `/agent-os:tracker map` does nothing (say so in one line).
+- **Without `create`**: `mode` is `pull`, and comments need a linked issue (`task.external.key`), which only Pull and Pick provide.
+- **Without `comment`**: no commits comment is drafted, offered or queued, and `/agent-os:commit` offers none.
+- **Retry** (`/agent-os:tracker sync`) runs only what the current permissions allow. Writes queued or held before a permission was removed stay in the task file and are not offered until it is granted again.
+- **Setup** (`/agent-os:setup` Step 2.2) asks only the questions of the granted permissions: types and mode with `create`, the route with `move`, the owner name with `comment`.
 
 ## Rules
 
 - **Only the orchestrator.** Every tracker operation runs in the calling command (main session), never in a subagent: MCP tools do not reach the plugin's subagents. Never put tracker data in an agent prompt beyond what is already in the task file.
 - **Only MCP.** `tracker.connection` is `mcp`: use the tools of `tracker.mcp.server`. There is no REST connection.
 - **No credentials anywhere.** The MCP server holds the authentication. Never write a token, password or cookie to `.agent-os/`, the task file, a prompt or the output.
-- **Allowed writes, and nothing else:**
+- **Allowed writes, and nothing else**, each only with its permission (Permissions):
 
   | Write | When | Approval |
   |---|---|---|
@@ -39,7 +53,7 @@ With `access: "read"`:
   Never edit fields, assignees, descriptions or sprints, never delete, never link, never transition to a status that is not in `status_route`. Never move to Done unless the user mapped `done_pipeline` to Done.
 
   On the Atlassian server: never use `executeWrite` or `executeDestructive`. Never pass `commentId` to `addOrEditJiraIssueComment`: it edits an existing comment and replaces its whole body. Never comment through the `update` of `transitionJiraIssue`.
-- **Unattended approver mode** does not skip these gates: create and comment writes are queued in `task.external.pending_writes` and asked together at the end of the run (Pending Writes). Transitions still run.
+- **Unattended approver mode** does not skip these gates: create and comment writes are queued in `task.external.pending_writes` and asked together at the end of the run (Pending Writes). Transitions still run, with the `move` permission.
 - **Never block the pipeline.** A failed or impossible tracker operation is appended to `task.external.sync_errors`, reported in one line, and the pipeline continues. `/agent-os:tracker sync` retries.
 - **Log every write** in `task.external.sync_log` (`at`, `event`, `operation`, `target`, `result`; a comment is recorded before it is posted, Comment Commits Step 9), and show the writes of a stage in that stage's summary (`Tracker: VR-123 → [status]`). The final report has a Tracker section. `event` is the route event, the write (`create_parent`, `create_subtasks`, `comment_commits`), `pull` or `retry`, never a gate name such as `requirements-approved`.
 - **A linked issue means `task.external.key`.** `task.external` can exist without a key, to hold the log, the errors and the queue of a task whose issue is not created. It then has only `provider` (`config.tracker.provider`) and those fields, and it does not count as a linked issue. If one of those has to be written and `task.external` is missing, create it that way first.
@@ -118,7 +132,7 @@ Only when `tracker.mode` is `pull` or `both`.
 1. Read the issue. If it does not exist or cannot be read: tell the user and stop (nothing was created).
 2. Fill the new task: `title` = the issue summary; `description` = the issue description, verbatim (converted to plain Markdown), followed by the acceptance criteria field when the issue has one (under a heading "Acceptance criteria"). Nothing is added or summarised.
 3. `task.external = { provider, key, id, url, origin: "pulled", status, epic, existing_subtasks: [{ key, summary, status }] }`. Log a `pull` / `read` entry.
-4. **Epic** (Jira): `epic = { key, summary }` of the issue's parent when that parent is an epic, read from the same issue response (seen as `fields.parent`, with its issue type). A parent is an epic when its issue type has hierarchy level 1, or, when the level is not given, its type name means epic in any language (`Epic`, `Épica`). A sub-task's parent is a story, not an epic: then read that story and take its parent the same way. No parent, or a parent that is not an epic: no `epic` field. Plane: no `epic` field. It is a read, so it also runs with `access: "read"`.
+4. **Epic** (Jira): `epic = { key, summary }` of the issue's parent when that parent is an epic, read from the same issue response (seen as `fields.parent`, with its issue type). A parent is an epic when its issue type has hierarchy level 1, or, when the level is not given, its type name means epic in any language (`Epic`, `Épica`). A sub-task's parent is a story, not an epic: then read that story and take its parent the same way. No parent, or a parent that is not an epic: no `epic` field. Plane: no `epic` field. It is a read: it needs only the `read` permission.
 5. The planner may cite `existing_subtasks` keys in its subtasks; agent-os never modifies them.
 
 **Pick** (`/agent-os:tracker pick`, or `/agent-os:start` without arguments when the mode allows pull):

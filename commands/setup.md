@@ -227,7 +227,7 @@ The architecture gate (`design`) can be given to the approver only in unattended
 
 ## Step 2.2: Tracker (optional)
 
-Connects Jira or Plane through an MCP server. Access to the tracker follows the `tracker-sync` skill: read-only writes nothing; with write access, moves along the route you confirm here are automatic, and creating issues and commenting always ask first.
+Connects Jira or Plane through an MCP server. What agent-os may do in the tracker is a set of permissions chosen one by one (**Permissions** in the `tracker-sync` skill): reading is always on; moving along the route you confirm here is automatic; creating issues and commenting the commits always ask first.
 
 1. AskUserQuestion, in `output_language`. With `--reconfigure`, mark the current value with "(actual)".
    - Header: "Tracker" — "¿Conectar un gestor de tareas?"
@@ -237,11 +237,12 @@ Connects Jira or Plane through an MCP server. Access to the tracker follows the 
 
    "No" → no `tracker` key (with `--reconfigure`, remove it if it existed, after confirming). Continue to Step 2.5.
 2. **MCP server.** List the MCP tools available in this session and find the servers whose tools match the provider (`tracker-sync` → Tool Discovery). One match: use it. Several: ask which one. None: show the `claude mcp add` command for the provider from the README (Tracker section), tell the user to add it, authenticate with `/mcp`, and run `/agent-os:tracker setup` later. Do not write a `tracker` key; continue to Step 2.5.
-3. **Access.** AskUserQuestion, in `output_language`, header "Permisos", "¿Qué permites a agent-os en el tracker?". With `--reconfigure`, mark the current value with "(actual)"; a missing `access` counts as write.
-   - "Solo lectura (Recomendado)" (description: "Lee issues y estados. No crea, no comenta y no mueve nada.")
-   - "Lectura y escritura" (description: "Crea issues y sub-tareas y comenta commits, siempre con tu aprobación, y mueve issues por la ruta que confirmes.")
+3. **Permissions.** AskUserQuestion with `multiSelect: true`, in `output_language`, header "Permisos", "Leer issues siempre está activo. ¿Qué más permites a agent-os en el tracker?". With `--reconfigure`, mark the permissions currently granted (effective permissions, `tracker-sync` → Permissions) with "(actual)".
+   - "Comentar commits (Recomendado)" (description: "Comenta en el issue los commits de la tarea, siempre con tu aprobación.")
+   - "Mover issues" (description: "Mueve el issue por la ruta de columnas que confirmes, sin preguntar cada vez.")
+   - "Crear issues" (description: "Crea el issue padre y sus sub-tareas, siempre con tu aprobación.")
 
-   "Solo lectura" → `access: "read"` and `mode: "pull"`: skip the types of step 4, and steps 5, 6 and 7 (**Read-Only Access** in the `tracker-sync` skill). "Lectura y escritura" → `access: "write"`.
+   Write `permissions: ["read", …]` with the chosen ones (`comment`, `move`, `create`); none chosen → `["read"]`. Never write `access`; with `--reconfigure`, remove an existing `access`. Then ask only what the chosen permissions need: the types of step 4 and step 5 only with `create` (without it, `mode: "pull"`), step 6 only with `move`, step 7 only with `comment`.
 4. **Project.**
    - Jira: get the accessible sites (one → use it; several → ask), keep `site_url` and `cloud_id`; list the visible projects and ask for the project (the 4 most relevant as options; the user can type the key). Read its issue types (`tracker-sync` → Tool Discovery) and propose `parent_type` and `subtask_type` from what was read, using the names as the project shows them, in any language; confirm in the next question. If they cannot be read, ask the user to type them there.
    - Plane: list the projects of the workspace and ask; keep `workspace_slug`, `project_id`, `project_identifier` and, for self-hosted instances, `base_url`.
@@ -250,7 +251,7 @@ Connects Jira or Plane through an MCP server. Access to the tracker follows the 
    - Jira only, header "Tipos" — "Tipos para crear: [parent_type] + [subtask_type]?": "Sí (Recomendado)" / "Cambiar" (then ask the user to type them).
 6. **Route of action**: run **Board Analysis** of the `tracker-sync` skill.
 7. **Owner name** (optional): ask the question of **Owner Name → Configuring it** in the `tracker-sync` skill, and keep the answer for Step 4.
-8. Keep the result for Step 4: `"tracker": { provider, access, connection: "mcp", mcp: { server }, mode, jira | plane, pick_assigned_to_me: true, status_route }`, without `status_route` for `read`. No credentials: the MCP server handles authentication.
+8. Keep the result for Step 4: `"tracker": { provider, permissions, connection: "mcp", mcp: { server }, mode, jira | plane, pick_assigned_to_me: true, status_route }`, with `status_route` only with `move`. No credentials: the MCP server handles authentication.
 
 If any MCP call fails, say so, write no `tracker` key, suggest `/agent-os:tracker setup`, and continue: the tracker never blocks setup.
 
@@ -377,7 +378,7 @@ After confirmation, create these files and directories:
     "requirements_format": "[req | user-stories, from Step 2.1]"
   },
   "approver": "[only if Step 2.1 enabled it: { enabled, mode, gates, max_revisions }]",
-  "tracker": "[only if Step 2.2 connected one: { provider, access, connection, mcp, mode, jira | plane, pick_assigned_to_me, status_route }]",
+  "tracker": "[only if Step 2.2 connected one: { provider, permissions, connection, mcp, mode, jira | plane, pick_assigned_to_me, status_route }]",
   "git": "[only if Step 2.3 kept conventions: { base_branch, branch_pattern, commit_pattern, commit_pattern_no_key, commit_types, commit_language, protected_branches, epic_branches?, repos? }]",
   "extensions": "[from Step 2.5, plus agent-os:commit in stages.qa.commands if Step 2.3 enabled it]"
 }
@@ -483,14 +484,13 @@ Template (Spanish labels; translate them when `output_language = "en"`):
 | | |
 |---|---|
 | Gestor | [No conectado · or Jira / Plane por MCP (`server`)] |
-| Acceso | [Solo lectura · Lectura y escritura] |
+| Permisos | [Leer · Comentar commits (con tu aprobación) · Mover issues (automático) · Crear issues (con tu aprobación): only the granted ones] |
 | Proyecto | [project key · or workspace / identifier · or —] |
 | Modo | [pull · create · both · or —] |
 | Ruta | [start → … · development → … · qa → … · done_pipeline → … · blocked → … · or —] |
-| Escrituras | Mover por la ruta: automático · Crear y comentar: siempre con tu aprobación |
 | Encargado | [display_name · or "cuenta del tracker, o se pregunta al comentar"] |
 
-(Omit every row but "Gestor" when no tracker is connected. With "Solo lectura", omit "Ruta", "Escrituras" and "Encargado".)
+(Omit every row but "Gestor" when no tracker is connected. Omit "Ruta" without `move` and "Encargado" without `comment`.)
 
 ### 🌿 Git
 | | |

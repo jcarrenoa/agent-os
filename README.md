@@ -85,7 +85,7 @@ Clone this repository and start Claude Code with `claude --plugin-dir <path-to-a
 | `/agent-os:skills mode <stage>.<role> extend\|replace` | Set whether the plugin default (tech-adaptation) is added for a role. |
 | `/agent-os:extensions [status\|install\|uninstall\|update]` | Check or install the recommended extensions from the catalog, after approving the exact commands. |
 | `/agent-os:commit [KEY]` | One local commit per repo for the task, on a feature branch named by the project's git conventions. Never pushes. See [Git conventions](#git-conventions). |
-| `/agent-os:tracker [setup\|map\|pick\|sync\|owner\|off]` | Jira / Plane integration over MCP: connect it, re-map the board columns, pick an issue, retry failed syncs, set the name that closes the commits comments. See [Tracker](#tracker). |
+| `/agent-os:tracker [setup\|permissions\|map\|pick\|sync\|owner\|off]` | Jira / Plane integration over MCP: connect it, choose its permissions, re-map the board columns, pick an issue, retry failed syncs, set the name that closes the commits comments. See [Tracker](#tracker). |
 
 ---
 
@@ -509,7 +509,7 @@ Some teams give each epic its own branch, born from `base_branch`, and branch ea
 qa ──► contacts (epic Contactos, updated with qa) ──► VR-96 (story)
 ```
 
-- **Pull** reads the issue's epic (its parent in Jira) into `task.external.epic`. This is a read, so it also works with read-only access.
+- **Pull** reads the issue's epic (its parent in Jira) into `task.external.epic`. This is a read, so it needs only the `read` permission.
 - **The epic branch is used when it is clear, and asked about when it is not.** It is used when `epic_branch_map` knows it, or when exactly one branch is named like the epic's key or summary (`feature/contactos`). Otherwise you are asked which branch it is, and the answer is saved in `epic_branch_map`, so the next story of that epic is not asked again.
 - **`/agent-os:start`** offers to check out the epic branch in each repo and update it from `base_branch` before the work starts. This is local only: `--ff-only` when possible, otherwise a merge that is aborted and reported if it conflicts.
 - **`/agent-os:commit`** creates the story branch from the epic branch. Merging the story into the epic, and the PRs to `dev` and `qa`, are yours.
@@ -544,14 +544,20 @@ Only the orchestrating command talks to the tracker (the `tracker-sync` skill), 
 
 The server name you choose is stored in `tracker.mcp.server`; agent-os finds the tools by that prefix and tells you if one it needs is missing. Approve the MCP tools in Claude Code's permission prompts, or allow them in your settings.
 
-### Access
+### Permissions
 
-Setup asks what agent-os may do in the tracker, and stores it in `tracker.access`:
+Setup asks what agent-os may do in the tracker, one permission at a time, and stores them in `tracker.permissions`:
 
-- `read` (recommended): it reads issues and statuses, and creates, comments and moves nothing. Only `pull` mode is available, and setup skips the route, the types to create and the owner name. The pipeline runs as usual: where a write would go, it says once per run that the tracker is read-only. `/agent-os:commit`, `/agent-os:tracker sync` and `map` respect it too.
-- `write`: everything described below. A config without `access` behaves as `write`.
+| Permission | What it allows | Approval |
+|---|---|---|
+| `read` | Read issues, statuses and comments. Always on | — |
+| `comment` | Comment the commits on the linked issue (Commits comment below) | Always asked |
+| `move` | Move the issue along the route of action. Asks for the route in setup | None: the route you confirmed is the consent |
+| `create` | Create the parent issue and its sub-tasks. Without it, only `pull` mode is available | Always asked |
 
-To change it: `/agent-os:tracker setup`.
+Any combination works: for example `["read", "comment"]` takes existing issues and comments the commits, but never moves or creates anything. Setup asks only what the chosen permissions need (types and mode with `create`, the route with `move`, the owner name with `comment`). Where the pipeline would do something not permitted, it says so once per run and continues. `/agent-os:commit`, `/agent-os:tracker sync` and `map` respect the permissions too.
+
+To change them: `/agent-os:tracker permissions`. Older configs with `tracker.access` keep working: `read` means `["read", "comment"]`, and `write` (or no `access`) means all four.
 
 ### Modes
 
@@ -576,11 +582,13 @@ An event without a column moves nothing. In Jira the move uses the issue's avail
 
 ### What is written, and when you are asked
 
-| Write | Approval |
-|---|---|
-| Moving the issue (and created sub-tasks) along the route | None: the route you confirmed is the consent. Every move is logged and shown in the stage summary |
-| Creating the parent issue, creating the sub-tasks | Always asked, in every mode |
-| The commits comment | Always asked, in every mode |
+Each write runs only with its permission (Permissions above).
+
+| Write | Permission | Approval |
+|---|---|---|
+| Moving the issue (and created sub-tasks) along the route | `move` | None: the route you confirmed is the consent. Every move is logged and shown in the stage summary |
+| Creating the parent issue, creating the sub-tasks | `create` | Always asked, in every mode |
+| The commits comment | `comment` | Always asked, in every mode |
 
 In unattended approver mode, creates and comments are queued and asked together at the end of the run, in one gate: the parent, then its sub-tasks, then the comments. If the parent is not created, neither are the sub-tasks. Nothing else is ever written: no field edits, assignees, deletions or links.
 
@@ -599,7 +607,7 @@ The `done_pipeline` move runs last. A declined or failed commits comment does no
 ```json
 "tracker": {
   "provider": "jira",
-  "access": "write",
+  "permissions": ["read", "move", "create", "comment"],
   "connection": "mcp",
   "mcp": { "server": "atlassian" },
   "mode": "both",
