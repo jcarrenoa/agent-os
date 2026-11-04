@@ -327,7 +327,7 @@ How it works:
 - **Clean `git status`.** CodeGraph's `.codegraph/` is added to each repository's `.git/info/exclude` (local, never committed) if it is not already there. `uninstall` removes that line only where the installer added it, and keeps `~/.codegraph/telemetry.json` so a reinstall keeps telemetry off (the report says so; delete `~/.codegraph/` yourself if you will not reinstall).
 - **Pinned versions only.** Each catalog entry is pinned to an exact version or commit (CodeGraph `1.6.2`, The AntiSlop commit `f123fdc`). `update` only moves to the version pinned in the catalog. Nothing outside the catalog can be installed.
 - **Wrapper skills.** The installer writes small agent-os skills, `use-codegraph` and `use-antislop`, and assigns them in `~/.agent-os/defaults.json`:
-  - `use-codegraph` (planner, backend-developer, frontend-developer, qa-engineer): runs `codegraph sync` and `codegraph explore` before reading code, and falls back to normal reads when there is no index. It never runs `codegraph install`, so your `CLAUDE.md` and MCP configuration are untouched.
+  - `use-codegraph` (planner, backend-developer, frontend-developer, qa-engineer): runs `codegraph sync` and `codegraph explore` before reading code, even when the plan already names the files; reads only the parts of a file it edits, never reads code through Bash (`cat`, `sed`), and reports how many `explore` calls it made. It falls back to normal reads when there is no index. After a wrapper change, `/agent-os:extensions update` rewrites the installed copy. It never runs `codegraph install`, so your `CLAUDE.md` and MCP configuration are untouched.
   - `use-antislop` (requirements-analyst and architect, after `antislop` itself): audits only the prose the agent wrote. Structural patterns apply in any language; English-specific lexical patterns only when writing in English. It never runs the upstream pattern-refresh commands.
 - **Your configuration is preserved.** Assignments are merged into `~/.agent-os/defaults.json`; `uninstall` removes only what the installer added (recorded in `~/.agent-os/installed-extensions.json`). Files the installer did not create are never overwritten.
 - **Idempotent and non-blocking.** Running install again does nothing for an extension that is already up to date. A failed step is reported and recorded, and setup and the pipeline continue without that extension.
@@ -638,7 +638,7 @@ For Plane, replace `jira` with `"plane": { "workspace_slug", "project_id", "proj
 
 Optional integration with **Figma**, so the agents work from the task's design. Configured in `/agent-os:setup` (Step 2.4, skipped when the focus is backend) or later with `/agent-os:design-source setup`. Without the `design_source` key in `config.json`, nothing changes.
 
-Subagents cannot reach MCP tools, so only the orchestrating command talks to Figma (the `design-sync` skill) and writes what it reads to files the agents can open. Register Figma's MCP server in Claude Code and sign in with `/mcp`; agent-os never stores or sees a token.
+agent-os agents cannot reach MCP tools (they only get the tools in their frontmatter), so Figma is read by the orchestrating command through the `design-sync` skill, which hands the reading to a built-in `general-purpose` subagent (Sonnet) that does get them. It writes what it reads to files the agents can open, so the raw design never fills the orchestrator's context. Questions and gated writes stay in the orchestrator. Register Figma's MCP server in Claude Code and sign in with `/mcp`; agent-os never stores or sees a token.
 
 ### Permissions
 
@@ -653,7 +653,7 @@ Agent-os never creates, edits or deletes anything in Figma. To change the permis
 ### How the design reaches the agents
 
 1. **Links.** At the start of Discovery, agent-os collects the Figma links of the task from the argument and the description (for a pulled issue, its description). With none, it asks; in unattended mode it continues without design. `/agent-os:design-source link <url>` adds links later.
-2. **Snapshot.** For each linked frame (a page or file asks which frames; at most `max_frames`, default 10), it reads the design context, variables, Code Connect mappings and screenshot, and writes `.agent-os/designs/TASK-NNN/`:
+2. **Snapshot.** In the snapshot subagent, for each linked frame (a page or file asks which frames; at most `max_frames`, default 10), it reads the design context, variables, Code Connect mappings and screenshot, and writes `.agent-os/designs/TASK-NNN/`:
    - `brief.md`: frames, layout, components, every text verbatim, tokens, and the states present and missing (loading, empty, error, disabled), plus how each agent must use it;
    - `frames/<node>.md`: the raw design context, unchanged;
    - `screens/<node>.png`: only when the server returns a downloadable image. An inline image cannot be saved and is described in the brief instead.
